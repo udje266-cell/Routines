@@ -3,9 +3,12 @@ import { View } from 'react-native';
 
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
-import { formatFcfa, parseFcfa, type PlannedItem } from '@/domain';
+import { formatFcfa, type PlannedItem } from '@/domain';
 
-import { Button, Field, Status } from './ui';
+import { confirmAction } from '@/lib/confirm';
+
+import { AmountField, DateField } from './inputs';
+import { Button, Status } from './ui';
 
 /**
  * Confirmer une échéance saisie à la main : l'opération réelle remplace la partie prévue
@@ -16,7 +19,7 @@ export function PlannedActions({ item }: { item: PlannedItem }) {
   const today = snapshot!.today;
   const w = useWrite('confirmation');
   const [mode, setMode] = useState<null | 'montant' | 'date'>(null);
-  const [amount, setAmount] = useState(String(item.amount));
+  const [amount, setAmount] = useState<number | null>(item.amount);
   const [date, setDate] = useState(today);
   const income = item.kind === 'rentree';
 
@@ -30,7 +33,6 @@ export function PlannedActions({ item }: { item: PlannedItem }) {
   }
 
   async function reschedule() {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < today) return w.setError('Nouvelle date à partir d’aujourd’hui (AAAA-MM-JJ).');
     if (await w.run((r) => r.reschedulePlanned(item.id, date))) setMode(null);
   }
 
@@ -39,15 +41,15 @@ export function PlannedActions({ item }: { item: PlannedItem }) {
       {w.error ? <Status tone="risque">{w.error}</Status> : null}
       {mode === 'montant' ? (
         <>
-          <Field label={income ? 'Montant reçu (F)' : 'Montant payé (F)'} value={amount} onChangeText={setAmount} keyboardType="number-pad" />
-          {parseFcfa(amount) !== null && parseFcfa(amount)! < item.amount ? (
-            <Status tone="attention">Le reste ({formatFcfa(item.amount - parseFcfa(amount)!)}) restera prévu.</Status>
+          <AmountField label={income ? 'Combien avez-vous reçu ?' : 'Combien avez-vous payé ?'} value={amount} onChange={setAmount} />
+          {amount !== null && amount < item.amount ? (
+            <Status tone="attention">Le reste ({formatFcfa(item.amount - amount)}) restera prévu.</Status>
           ) : null}
-          <Button label="Confirmer" disabled={w.busy || !parseFcfa(amount)} onPress={() => confirm(parseFcfa(amount)!)} />
+          <Button label="Confirmer" disabled={w.busy || !amount} onPress={() => confirm(amount!)} />
         </>
       ) : mode === 'date' ? (
         <>
-          <Field label="Nouvelle date (AAAA-MM-JJ)" value={date} onChangeText={setDate} />
+          <DateField label="Nouvelle date" value={date} onChange={setDate} today={today} min={today} />
           <Button label="Replanifier" disabled={w.busy} onPress={reschedule} />
         </>
       ) : (
@@ -57,6 +59,11 @@ export function PlannedActions({ item }: { item: PlannedItem }) {
           </View>
           <View style={{ flex: 1, minWidth: 110 }}><Button variant="secondaire" label="Autre montant" onPress={() => setMode('montant')} /></View>
           <View style={{ flex: 1, minWidth: 110 }}><Button variant="secondaire" label="Replanifier" onPress={() => setMode('date')} /></View>
+          <View style={{ flex: 1, minWidth: 110 }}>
+            <Button variant="lien" label="Supprimer" icon="trash-outline" disabled={w.busy}
+              onPress={() => confirmAction('Supprimer ?', `« ${item.label} » (${formatFcfa(item.amount)}) ne sera plus prévu.`, 'Supprimer',
+                () => { void w.run((r) => r.deletePlanned(item.id)); })} />
+          </View>
         </View>
       )}
     </View>

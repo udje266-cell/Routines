@@ -83,7 +83,8 @@ export class RefusedError extends Error {}
 export interface FinanceRepository {
   readonly mode: 'demo' | 'compte';
   loadSnapshot(today: CivilDate): Promise<Snapshot>;
-  addWallet(w: NewWallet): Promise<void>;
+  /** Crée le compte et renvoie son identifiant. */
+  addWallet(w: NewWallet): Promise<string>;
   addPlanned(p: NewPlanned): Promise<void>;
   recordOperation(op: NewOperation): Promise<void>;
   saveIntent(i: NewIntent): Promise<void>;
@@ -114,6 +115,8 @@ export interface FinanceRepository {
   stopRecurring(ruleId: string, end: CivilDate): Promise<void>;
   /** Replanifie une échéance ponctuelle ou une rentrée en retard. */
   reschedulePlanned(id: string, date: CivilDate): Promise<void>;
+  /** Supprime une chose prévue saisie à la main (à payer plus tard, argent attendu). */
+  deletePlanned(id: string): Promise<void>;
   /** Supprime définitivement le compte et toutes ses données. */
   deleteAccount(): Promise<void>;
   /** Crée le crédit et renvoie son identifiant. */

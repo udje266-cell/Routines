@@ -16,12 +16,12 @@ export default function Bilan() {
 
   return (
     <Screen>
-      <Title>Bilan du cycle</Title>
-      <Choice label="Cycle" value={which} onChange={setWhich} options={[{ value: 'courant', label: 'En cours' }, { value: 'precedent', label: 'Précédent' }]} />
+      <Title>Bilan du mois</Title>
+      <Choice label="Mois" value={which} onChange={setWhich} options={[{ value: 'courant', label: 'En cours' }, { value: 'precedent', label: 'Précédent' }]} />
       <Label muted>Du {formatDateFr(bounds.start)} au {formatDateFr(bounds.end)}</Label>
 
       <Card>
-        <Label muted>Rentrées</Label>
+        <Label muted>Argent reçu</Label>
         <Title>{formatFcfa(income)}</Title>
         <Label>Revenu principal {formatFcfa(r.income.main)} · petites sommes {formatFcfa(r.income.small)}</Label>
         {r.income.small > r.income.main ? <Status tone="attention">Les petites sommes dépassent votre revenu principal : elles méritent un suivi aussi attentif.</Status> : null}
@@ -30,12 +30,12 @@ export default function Bilan() {
       <Card tone={r.spending > income ? 'risque' : undefined}>
         <Label muted>Dépenses du quotidien</Label>
         <Title>{formatFcfa(r.spending)}</Title>
-        {r.spending > income ? <Status tone="risque">Vous avez dépensé {formatFcfa(r.spending - income)} de plus que vos rentrées.</Status> : null}
+        {r.spending > income ? <Status tone="risque">Vous avez dépensé {formatFcfa(r.spending - income)} de plus que ce que vous avez reçu.</Status> : null}
       </Card>
 
       <Card>
-        <Label muted>Enveloppes : prévu / réel</Label>
-        {r.categories.length === 0 ? <Label>Aucun plafond défini (Mon budget → Enveloppes).</Label> : null}
+        <Label muted>Mes limites : prévu / dépensé</Label>
+        {r.categories.length === 0 ? <Label>Aucune limite définie (Plus › Limites de dépenses).</Label> : null}
         {r.categories.map((c) => (
           <Status key={c.category} tone={c.status === 'depasse' ? 'risque' : c.status === 'presque' ? 'attention' : 'ok'}>
             {c.category}{c.pleasure ? ' (plaisir)' : ''} : {formatFcfa(c.spent)} / {formatFcfa(c.cap)}

@@ -146,7 +146,9 @@ export class DemoRepository implements FinanceRepository {
   }
 
   async addWallet(w: NewWallet) {
-    this.wallets.push({ id: this.id(), name: w.name, kind: w.kind, everyday: w.everyday, balance: w.openingBalance });
+    const id = this.id();
+    this.wallets.push({ id, name: w.name, kind: w.kind, everyday: w.everyday, balance: w.openingBalance });
+    return id;
   }
 
   async addPlanned(p: NewPlanned) {
@@ -255,7 +257,8 @@ export class DemoRepository implements FinanceRepository {
 
   async updateOperation(id: string, p: OperationPatch) {
     const o = this.editable(id);
-    if (o.goalId) throw new RefusedError('Opération liée : corrigez-la depuis son objectif.');
+    // Comme le serveur : une opération liée se corrige depuis sa dette, son crédit, son objectif ou sa facture.
+    if (o.goalId || o.recurring || o.loanId) throw new RefusedError('Opération liée : supprimez-la puis ressaisissez-la si besoin.');
     this.unapply(id);
     this.apply({ ...o, amount: p.amount, date: p.date, label: p.label, category: p.category, walletId: p.walletId });
   }
@@ -321,6 +324,10 @@ export class DemoRepository implements FinanceRepository {
   async reschedulePlanned(id: string, date: CivilDate) {
     const p = this.planned.find((x) => x.id === id);
     if (p) p.date = date;
+  }
+
+  async deletePlanned(id: string) {
+    this.planned = this.planned.filter((p) => p.id !== id);
   }
 
   async deleteAccount() {

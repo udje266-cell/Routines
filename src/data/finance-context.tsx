@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { buildReminders, todayAbidjan, type Snapshot } from '@/domain';
 import { cancelReminders, scheduleReminders } from '@/lib/notifications';
@@ -14,6 +14,10 @@ type Status = 'deconnecte' | 'chargement' | 'pret' | 'connexion_requise' | 'erre
 
 interface FinanceState {
   repo: FinanceRepository | null;
+  /** Vrai tant que la session enregistrée sur l'appareil n'a pas été relue (ne pas rediriger vers la connexion). */
+  restoring: boolean;
+  /** Compte réel sans aucun compte d'argent : afficher la configuration guidée. */
+  onboardingNeeded: boolean;
   snapshot: Snapshot | null;
   status: Status;
   error: string | null;
@@ -40,6 +44,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [prefs, setPrefsState] = useState<DevicePrefs>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const [restoring, setRestoring] = useState(Boolean(supabase));
 
   useEffect(() => {
     loadPrefs().then((p) => {
@@ -91,8 +96,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) select(new SupabaseRepository(supabase!));
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (data.session) select(new SupabaseRepository(supabase!));
+      })
+      .finally(() => setRestoring(false));
+    // Renouvellement du jeton seulement quand l'application est au premier plan (recommandation Supabase pour React Native).
+    if (Platform.OS !== 'web') supabase.auth.startAutoRefresh();
+    const appState = AppState.addEventListener('change', (s) => {
+      if (Platform.OS === 'web' || !supabase) return;
+      if (s === 'active') supabase.auth.startAutoRefresh();
+      else supabase.auth.stopAutoRefresh();
     });
     const { data } = supabase.auth.onAuthStateChange((event) => {
       // Déconnexion, y compris forcée par le serveur (jeton révoqué) : on efface aussi l'appareil.
@@ -101,12 +115,16 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         select(null);
       }
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      data.subscription.unsubscribe();
+      appState.remove();
+    };
   }, [select, wipeDevice]);
 
   const value = useMemo<FinanceState>(
     () => ({
-      repo, snapshot, status, error,
+      repo, restoring, snapshot, status, error,
+      onboardingNeeded: repo?.mode === 'compte' && status === 'pret' && !!snapshot && snapshot.wallets.length === 0,
       startDemo: () => select(new DemoRepository(todayAbidjan())),
       openAccount: () => {
         if (supabase) select(new SupabaseRepository(supabase));
@@ -147,7 +165,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         await load(repo);
       },
     }),
-    [repo, snapshot, status, error, load, select, prefs, prefsLoaded, wipeDevice],
+    [repo, restoring, snapshot, status, error, load, select, prefs, prefsLoaded, wipeDevice],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

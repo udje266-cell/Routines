@@ -55,8 +55,12 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - `.env.local` (ignoré par Git) contient l'URL et la clé publique ; jamais la clé secrète.
 - Ne jamais lancer `npm run test:integration` contre le projet en ligne (création de comptes et envois d'e-mails).
 
-## Identité visuelle
-Couleurs tirées de l'icône et du logo (`C` dans `src/components/ui.tsx`) : marine `#1E183B` (boutons principaux, en-têtes, barre d'onglets, carte `Hero`), lavande `#D9D1FB` (boutons secondaires, bordures), menthe `#8EE3C8` (repère, indicateur d'onglet, progression ; `#12704F` pour du texte sur fond clair). Rouge et ambre réservés aux alertes, toujours avec icône et libellé.
+## Identité visuelle et ergonomie
+- Style des maquettes validées (`C` dans `src/components/ui.tsx`) : fond lavande très clair, grands titres dans l'écran (onglets sans en-tête), cartes teintées (`SummaryCard` lavande pour les montants, menthe pour le positif, ambre/rouge pour les alertes), actions en violet `#5B3FA0`, texte marine `#1E183B` (logo), menthe `#8EE3C8`/`#3FD3A0` pour la progression. Statuts toujours avec icône et libellé.
+- Saisies uniformes (`src/components/inputs.tsx`) : montants au clavier numérique seul (`AmountField`), dates au calendrier (`DateField`), jour du mois en grille (`DayOfMonthField`), choix en ligne « icône · libellé … valeur › » ouvrant une liste (`TileChoice` avec `rowIcon`). Jamais de saisie « AAAA-MM-JJ ».
+- Langage de tous les jours, sans jargon (compte, facture du mois, argent attendu, limite de dépenses). Textes longs sur une ligne (`numberOfLines={1}` + `adjustsFontSizeToFit`).
+- Accueil : « Je peux dépenser aujourd'hui » (`safeToSpend`), anneau du jour du mois, factures proches, dernières opérations (modifiables), conseil du banquier. Outils avancés dans l'onglet « Plus ».
+- Configuration guidée (`src/app/bienvenue.tsx`) au premier lancement d'un compte vide ; toute opération se modifie ou se supprime depuis `src/app/operation.tsx`.
 
 ## Commandes (vérifiées)
 ```

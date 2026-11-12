@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { Button, C, Card, Choice, Field, Hero, HeroText, Label, Screen, Status, Title } from '@/components/ui';
+import { AmountField, DateField, NumberField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
@@ -126,19 +127,19 @@ function NewLoan() {
       <Label muted>Avant de signer : vérifiez le coût, le taux et votre capacité de remboursement.</Label>
       <Field label="Nom du crédit (ex. Prêt moto)" value={label} onChangeText={setLabel} />
       <Choice label="Prêteur" value={lender} onChange={setLender} options={LENDERS} />
-      <Field label="Montant emprunté (F)" value={principal} onChangeText={setPrincipal} keyboardType="number-pad" />
+      <AmountField label="Montant emprunté (F)" value={parseFcfa(principal)} onChange={(v) => setPrincipal(v === null ? '' : String(v))} />
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Field label="Taux annuel (%)" value={rate} onChangeText={setRate} keyboardType="decimal-pad" /></View>
-        <View style={{ flex: 1 }}><Field label="Durée (mois)" value={months} onChangeText={setMonths} keyboardType="number-pad" /></View>
+        <NumberField label="Taux annuel" value={rate} onChange={setRate} suffix="%" decimals />
+        <NumberField label="Durée" value={months} onChange={setMonths} suffix="mois" />
       </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Field label="Frais de dossier (F)" value={fees} onChangeText={setFees} keyboardType="number-pad" /></View>
-        <View style={{ flex: 1 }}><Field label="Assurance / mois (F)" value={insurance} onChangeText={setInsurance} keyboardType="number-pad" /></View>
+        <View style={{ flex: 1 }}><AmountField label="Frais de dossier (F)" value={parseFcfa(fees)} onChange={(v) => setFees(v === null ? '' : String(v))} /></View>
+        <View style={{ flex: 1 }}><AmountField label="Assurance / mois (F)" value={parseFcfa(insurance)} onChange={(v) => setInsurance(v === null ? '' : String(v))} /></View>
       </View>
       <Choice label="Remboursement" value={method} onChange={setMethod}
         options={[{ value: 'annuite', label: 'Mensualités constantes' }, { value: 'capital_constant', label: 'Capital constant' }]} />
-      <Field label="Première échéance (AAAA-MM-JJ)" value={first} onChangeText={setFirst} />
-      <Choice label="Portefeuille" value={walletId} onChange={setWalletId} options={everyday.map((x) => ({ value: x.id, label: x.name }))} />
+      <DateField label="Date du premier remboursement" value={first} onChange={setFirst} today={snap.today} min={snap.today} />
+      <Choice label="Compte" value={walletId} onChange={setWalletId} options={everyday.map((x) => ({ value: x.id, label: x.name }))} />
 
       {advice && loan ? (
         <View style={{ gap: 6, paddingTop: 6 }}>
@@ -158,7 +159,7 @@ function NewLoan() {
         </View>
       ) : <Label muted>Renseignez le montant, le taux et la durée pour voir la mensualité et le coût.</Label>}
 
-      <Choice label="J’ai reçu l’argent sur ce portefeuille" value={received} onChange={setReceived}
+      <Choice label="J’ai déjà reçu l’argent sur ce compte" value={received} onChange={setReceived}
         options={[{ value: 'oui', label: 'Oui' }, { value: 'non', label: 'Pas encore (simulation)' }]} />
       {w.error ? <Status tone="risque">{w.error}</Status> : null}
       {disburse.error ? <Status tone="risque">Crédit enregistré, mais réception de l’argent non enregistrée : {disburse.error}</Status> : null}
@@ -224,7 +225,7 @@ function LoanCard({ loan }: { loan: LoanRecord }) {
         <Button label="Marquer comme soldé" disabled={w.busy} onPress={() => w.run((r) => r.setLoanStatus(loan.id, 'solde'))} />
       )}
 
-      <Button variant="secondaire" label={table ? 'Masquer le tableau d’amortissement' : 'Tableau d’amortissement'} onPress={() => setTable(!table)} />
+      <Button variant="secondaire" label={table ? 'Masquer le détail' : 'Voir tous les remboursements'} onPress={() => setTable(!table)} />
       {table ? rows.map((r) => (
         <Label key={r.n} muted={loan.paid.includes(r.n)}>
           {loan.paid.includes(r.n) ? '✓ ' : ''}{r.n}. {formatDateFr(r.date)} · {formatFcfa(r.payment + r.insurance)} (intérêts {formatFcfa(r.interest)}, capital {formatFcfa(r.principal)}) · reste {formatFcfa(r.remaining)}
@@ -233,12 +234,12 @@ function LoanCard({ loan }: { loan: LoanRecord }) {
 
       <Label muted>Rembourser plus tôt</Label>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Field label="Montant en plus (F)" value={extra} onChangeText={setExtra} keyboardType="number-pad" /></View>
-        <View style={{ flex: 1 }}><Field label="Date (AAAA-MM-JJ)" value={extraDate} onChangeText={setExtraDate} /></View>
+        <View style={{ flex: 1 }}><AmountField label="Montant en plus (F)" value={parseFcfa(extra)} onChange={(v) => setExtra(v === null ? '' : String(v))} /></View>
+        <View style={{ flex: 1 }}><DateField label="Quand ?" value={extraDate} onChange={setExtraDate} today={snap.today} /></View>
       </View>
       <Choice label="Effet" value={mode} onChange={setMode}
         options={[{ value: 'duree', label: 'Finir plus tôt' }, { value: 'mensualite', label: 'Baisser la mensualité' }]} />
-      <Field label="Indemnité de remboursement anticipé (% du montant, voir contrat)" value={penalty} onChangeText={setPenalty} keyboardType="decimal-pad" />
+      <NumberField label="Pénalité si vous remboursez plus tôt (voir contrat)" value={penalty} onChange={setPenalty} suffix="%" decimals />
       {amount && amount > remaining ? <Status tone="risque">Plus que le capital restant ({formatFcfa(remaining)}).</Status> : null}
       {sim ? (
         <View style={{ gap: 4 }}>
@@ -286,7 +287,7 @@ function Strategy() {
   return (
     <Card>
       <Label muted>Rembourser plusieurs dettes</Label>
-      <Field label="Budget mensuel consacré aux dettes (F)" value={budget} onChangeText={setBudget} keyboardType="number-pad" />
+      <AmountField label="Budget mensuel consacré aux dettes (F)" value={parseFcfa(budget)} onChange={(v) => setBudget(v === null ? '' : String(v))} />
       <Label muted>Minimum à payer chaque mois : {formatFcfa(minimum)}.</Label>
       {av.insufficient ? <Status tone="risque">Le budget ne couvre pas les paiements minimaux.</Status> : (
         <>

@@ -1,8 +1,10 @@
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { Button, C, Card, Choice, Field, Hero, HeroText, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, C, Card, Choice, Field, Label, Pill, Screen, Status } from '@/components/ui';
+import { AmountField, DateField, DayOfMonthField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
@@ -23,7 +25,7 @@ function advice(snap: Snapshot) {
 export default function Epargne() {
   const { snapshot } = useFinance();
   const [adding, setAdding] = useState(false);
-  if (!snapshot) return <Screen><Title>Épargne</Title></Screen>;
+  if (!snapshot) return <Screen title="Épargne"><Label muted>Chargement…</Label></Screen>;
 
   const pockets = snapshot.wallets.filter((w) => !w.everyday);
   const goals = snapshot.goals ?? [];
@@ -32,35 +34,31 @@ export default function Epargne() {
   const capacity = Math.max(0, a.recommended);
 
   return (
-    <Screen>
-      <Title>Épargne</Title>
-      <Hero label="Épargne réellement mise de côté" value={formatFcfa(saved)}>
-        <HeroText strong>Recommandé : {formatFcfa(a.recommended)} / mois</HeroText>
-      </Hero>
-      <Card>
-        <Label>Recommandé : {formatFcfa(a.recommended)} / mois (minimum {formatFcfa(a.minimum)})</Label>
-        <Label muted>
-          Calculé sur vos revenus des 3 derniers mois ({formatFcfa(st.mainMonthly)} de revenu principal + {formatFcfa(st.smallMonthly)} de petites sommes par mois)
-          et {formatFcfa(essentials)} de charges prévues sur 30 jours.
-        </Label>
-        {st.smallMonthly ? (
-          <Status tone="attention">Mettez {Math.round(a.smallIncomeRule.rate * 100)} % de chaque petite somme de côté dès réception (~{formatFcfa(a.smallIncomeRule.monthly)} / mois).</Status>
-        ) : null}
-        {a.notes.map((t) => <Label key={t} muted>{t}</Label>)}
-      </Card>
+    <Screen title="Épargne">
+      {goals.map((g) => <GoalCard key={g.id} goal={g} capacity={capacity} />)}
 
       {pockets.length === 0 ? (
         <Card tone="attention">
-          <Status tone="attention">Créez d’abord une poche d’épargne (portefeuille de type Épargne).</Status>
-          <Button label="Créer une poche d’épargne" onPress={() => router.push({ pathname: '/ajouter', params: { type: 'portefeuille' } })} />
+          <Status tone="attention">Créez d’abord un compte Épargne pour y mettre votre argent de côté.</Status>
+          <Button label="Créer mon compte Épargne" onPress={() => router.push({ pathname: '/ajouter', params: { type: 'portefeuille' } })} />
         </Card>
       ) : adding ? (
         <NewGoalForm onDone={() => setAdding(false)} defaults={a.addedDefaultGoal} />
       ) : (
-        <Button label={goals.length ? 'Nouvel objectif' : 'Créer mon fonds d’urgence'} onPress={() => setAdding(true)} />
+        <Button variant={goals.length ? 'secondaire' : 'primaire'} icon="add" label={goals.length ? 'Nouvel objectif' : 'Créer mon coussin de sécurité'} onPress={() => setAdding(true)} />
       )}
 
-      {goals.map((g) => <GoalCard key={g.id} goal={g} capacity={capacity} />)}
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Ionicons name="bulb-outline" size={22} color={C.violet} />
+          <Text style={{ fontSize: 17, fontWeight: '700', color: C.texte, flex: 1 }}>Combien mettre de côté ?</Text>
+        </View>
+        <Label>Visez <Text style={{ fontWeight: '800' }}>{formatFcfa(a.recommended)}</Text> par mois, et au moins {formatFcfa(a.minimum)} les mois difficiles.</Label>
+        {st.smallMonthly ? (
+          <Label>Astuce : à chaque petite somme reçue, mettez-en {Math.round(a.smallIncomeRule.rate * 100)} % de côté tout de suite.</Label>
+        ) : null}
+        <Label muted>Déjà de côté en tout : {formatFcfa(saved)}. Calcul fait sur vos revenus récents et {formatFcfa(essentials)} de factures sur 30 jours.</Label>
+      </Card>
     </Screen>
   );
 }
@@ -89,17 +87,15 @@ function NewGoalForm({ onDone, defaults }: { onDone: () => void; defaults: { nam
 
   return (
     <Card>
-      <Field label="Nom de l’objectif" value={name} onChangeText={setName} />
-      <Field label="Somme cible (F CFA)" value={target} onChangeText={setTarget} keyboardType="number-pad" />
-      <Field label="Date visée (AAAA-MM-JJ)" value={date} onChangeText={setDate} />
-      <Field label="Jour du mois des versements" value={day} onChangeText={setDay} keyboardType="number-pad" />
-      <Choice label="Poche d’épargne" value={pocket} onChange={setPocket} options={pockets.map((w) => ({ value: w.id, label: w.name }))} />
-      <Choice label="Versements prévus depuis" value={from} onChange={setFrom} options={everyday.map((w) => ({ value: w.id, label: w.name }))} />
+      <Field label="Pour quoi ?" icon="flag-outline" value={name} onChangeText={setName} placeholder="Ex. Coussin de sécurité, moto, mariage" />
+      <AmountField label="Combien voulez-vous avoir ?" value={parseFcfa(target)} onChange={(v) => setTarget(v === null ? '' : String(v))} />
+      <DateField label="À atteindre pour le" value={date} onChange={setDate} today={snapshot!.today} min={snapshot!.today} />
+      <DayOfMonthField label="Mettre de côté le" value={Number(day) || 28} onChange={(d) => setDay(String(d))} />
+      <Choice label="Rangé sur" value={pocket} onChange={setPocket} options={pockets.map((w) => ({ value: w.id, label: w.name }))} />
+      <Choice label="Pris sur" value={from} onChange={setFrom} options={everyday.map((w) => ({ value: w.id, label: w.name }))} />
       {error ? <Status tone="risque">{error}</Status> : null}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Button label="Enregistrer" disabled={busy} onPress={save} /></View>
-        <View style={{ flex: 1 }}><Button label="Fermer" variant="secondaire" onPress={onDone} /></View>
-      </View>
+      <Button label="Enregistrer" disabled={busy} onPress={save} />
+      <Button label="Fermer" variant="lien" onPress={onDone} />
     </Card>
   );
 }
@@ -107,44 +103,75 @@ function NewGoalForm({ onDone, defaults }: { onDone: () => void; defaults: { nam
 function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
   const { snapshot } = useFinance();
   const everyday = (snapshot?.wallets ?? []).filter((w) => w.everyday);
-  const [amount, setAmount] = useState('');
+  const [open, setOpen] = useState<null | 'verser' | 'retirer'>(null);
+  const [amount, setAmount] = useState<number | null>(null);
   const [walletId, setWalletId] = useState(goal.fromWalletId ?? everyday[0]?.id ?? '');
   const mv = useWrite('objectif-mvt');
   const progress = progressOf(goal);
   const pct = Math.min(100, Math.round((progress / goal.target) * 100));
   const schedule = goalSchedule(goal, snapshot!.today, capacity || undefined);
-  const value = parseFcfa(amount);
+  const next = schedule.installments[0];
 
-  const move = (withdraw: boolean) =>
-    value && mv.run((repo, clientKey) => repo.moveGoal({ clientKey, goalId: goal.id, walletId, amount: value, date: snapshot!.today, withdraw }))
-      .then((ok) => ok && setAmount(''));
+  const move = () =>
+    amount && open && mv.run((repo, clientKey) => repo.moveGoal({ clientKey, goalId: goal.id, walletId, amount, date: snapshot!.today, withdraw: open === 'retirer' }))
+      .then((ok) => { if (ok) { setAmount(null); setOpen(null); } });
 
   return (
-    <Card>
-      <Label>{goal.name}</Label>
-      <View accessible accessibilityRole="progressbar" accessibilityLabel={`${goal.name} : ${pct} %`}
-        accessibilityValue={{ min: 0, max: 100, now: pct }} style={{ height: 10, borderRadius: 5, backgroundColor: C.lavande }}>
-        <View style={{ width: `${pct}%`, height: 10, borderRadius: 5, backgroundColor: C.menthe }} />
-      </View>
-      <Label>{formatFcfa(progress)} sur {formatFcfa(goal.target)} ({pct} %) · reste {formatFcfa(goalRemaining(goal))}</Label>
-      <Label muted>Objectif : {formatDateFr(goal.date)}</Label>
-      {goalRemaining(goal) === 0 ? <Status tone="ok">Objectif atteint.</Status> : schedule.installments.length ? (
+    <>
+      <Card>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: C.mentheClair, alignItems: 'center', justifyContent: 'center' }}>
+            <MaterialCommunityIcons name="piggy-bank-outline" size={28} color={C.texte} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 19, fontWeight: '800', color: C.texte }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{goal.name}</Text>
+            <Text style={{ fontSize: 15, color: C.texte }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatFcfa(progress)} sur {formatFcfa(goal.target)}</Text>
+          </View>
+        </View>
+        <View accessible accessibilityRole="progressbar" accessibilityLabel={`${goal.name} : ${pct} %`}
+          accessibilityValue={{ min: 0, max: 100, now: pct }} style={{ height: 14, borderRadius: 7, backgroundColor: C.violetClair }}>
+          <View style={{ width: `${Math.max(pct, 2)}%`, height: 14, borderRadius: 7, backgroundColor: C.mentheVif }} />
+        </View>
+        {goalRemaining(goal) === 0 ? <Status tone="ok">Objectif atteint, bravo !</Status> : null}
+        {schedule.suggestedDate ? (
+          <Status tone="attention">À ce rythme ({formatFcfa(schedule.perInstallment)} par mois), vous l’atteindrez le {formatDateFr(schedule.suggestedDate)}.</Status>
+        ) : null}
+      </Card>
+
+      {next ? (
+        <Card>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: C.violetClair, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="calendar-outline" size={24} color={C.texte} />
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: C.texte }}>Prochain versement</Text>
+              <Text style={{ fontSize: 16, color: C.texte }}>{formatDateFr(next.date).replace(/ \d{4}$/, '')}</Text>
+              <Pill>{formatFcfa(next.amount)} CFA</Pill>
+            </View>
+          </View>
+        </Card>
+      ) : null}
+
+      {open ? (
+        <Card>
+          <AmountField label={open === 'verser' ? 'Combien mettez-vous de côté ?' : 'Combien retirez-vous ?'} value={amount} onChange={setAmount} autoFocus
+            hint={open === 'retirer' ? `Vous avez ${formatFcfa(progress)} sur cet objectif.` : undefined} />
+          <Choice label={open === 'verser' ? 'Depuis le compte' : 'Vers le compte'} value={walletId} onChange={setWalletId} options={everyday.map((w) => ({ value: w.id, label: w.name }))} />
+          {mv.error ? <Status tone="risque">{mv.error}</Status> : null}
+          <Button label="Enregistrer" disabled={mv.busy || !amount} onPress={move} />
+          <Button label="Fermer" variant="lien" onPress={() => setOpen(null)} />
+        </Card>
+      ) : (
         <>
-          <Label>Prochains versements prévus : {schedule.installments.slice(0, 3).map((i) => `${formatDateFr(i.date)} ${formatFcfa(i.amount)}`).join(' · ')}</Label>
-          {schedule.suggestedDate ? (
-            <Status tone="attention">
-              {goal.date < snapshot!.today ? 'Date dépassée' : 'Au-delà de votre capacité'} : échéancier ajusté à {formatFcfa(schedule.perInstallment)} / mois, objectif atteint le {formatDateFr(schedule.suggestedDate)}.
-            </Status>
+          <Button label="Ajouter un versement" onPress={() => { setAmount(next?.amount ?? null); setOpen('verser'); }} />
+          {progress > 0 ? (
+            <Pressable onPress={() => setOpen('retirer')} accessibilityRole="button" style={{ alignItems: 'center', padding: 4 }}>
+              <Text style={{ color: C.violet, fontWeight: '600', fontSize: 15 }}>Retirer de l’argent</Text>
+            </Pressable>
           ) : null}
         </>
-      ) : null}
-      <Field label="Montant (F CFA)" value={amount} onChangeText={setAmount} keyboardType="number-pad" />
-      <Choice label="Portefeuille du quotidien" value={walletId} onChange={setWalletId} options={everyday.map((w) => ({ value: w.id, label: w.name }))} />
-      {mv.error ? <Status tone="risque">{mv.error}</Status> : null}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Button label="Verser" disabled={mv.busy || !value} onPress={() => move(false)} /></View>
-        <View style={{ flex: 1 }}><Button label="Retirer" variant="secondaire" disabled={mv.busy || !value} onPress={() => move(true)} /></View>
-      </View>
-    </Card>
+      )}
+    </>
   );
 }

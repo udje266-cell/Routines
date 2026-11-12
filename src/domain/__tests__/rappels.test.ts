@@ -23,7 +23,7 @@ it('masquent noms et montants par défaut', () => {
 });
 
 it('détails seulement si l’utilisateur les active', () => {
-  expect(buildReminders(snap, { ...on, showDetails: true })[0].body).toMatch(/Loyer : 25 000 F demain/);
+  expect(buildReminders(snap, { ...on, showDetails: true })[0].body).toMatch(/Loyer : 25 000 F demain/);
 });
 
 it('pas de rappel pour une date d’envoi passée', () => {

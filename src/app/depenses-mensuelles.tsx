@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, Card, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, Card, Label, Screen, Status, Title } from '@/components/ui';
+import { AmountField, DateField, DayOfMonthField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
@@ -63,8 +64,8 @@ function RuleCard({ rule }: { rule: RecurringRule }) {
       {w.error ? <Status tone="risque">{w.error}</Status> : null}
       {editing ? (
         <>
-          <Field label="Nouveau montant (F)" value={amount} onChangeText={setAmount} keyboardType="number-pad" />
-          <Field label="Nouveau jour du mois" value={day} onChangeText={setDay} keyboardType="number-pad" />
+          <AmountField label="Nouveau montant (F)" value={parseFcfa(amount)} onChange={(v) => setAmount(v === null ? '' : String(v))} />
+          <DayOfMonthField label="Nouveau jour" value={Number(day) || 1} onChange={(d) => setDay(String(d))} />
           <Label muted>S’applique à partir de l’échéance du {next ? formatDateFr(next.date) : '—'}. Les mois précédents ne changent pas.</Label>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Button label="Enregistrer" disabled={w.busy} onPress={saveFollowing} /></View>
@@ -112,8 +113,8 @@ function OccurrenceRow({ rule, occ, payable }: { rule: RecurringRule; occ: Recur
       {pay.error ? <Status tone="risque">{pay.error}</Status> : null}
       {edit ? (
         <>
-          <Field label="Montant pour ce mois (F)" value={amount} onChangeText={setAmount} keyboardType="number-pad" />
-          <Field label="Date pour ce mois (AAAA-MM-JJ)" value={date} onChangeText={setDate} />
+          <AmountField label="Montant pour ce mois (F)" value={parseFcfa(amount)} onChange={(v) => setAmount(v === null ? '' : String(v))} />
+          <DateField label="Date pour ce mois" value={date} onChange={setDate} today={today} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Button label="Enregistrer" disabled={pay.busy} onPress={saveOne} /></View>
             <View style={{ flex: 1 }}><Button variant="secondaire" label="Sauter ce mois" disabled={pay.busy}

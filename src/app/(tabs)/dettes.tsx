@@ -1,44 +1,45 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { Button, Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, C, Card, Choice, Field, Label, Row, Screen, Status, SummaryCard } from '@/components/ui';
+import { AmountField, DateField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
-import { checkPayment, formatDateFr, formatFcfa, paidOf, parseFcfa, remainingOf, type Debt, type DebtDirection } from '@/domain';
+import { addDays, checkPayment, formatDateFr, formatFcfa, paidOf, parseFcfa, remainingOf, type Debt, type DebtDirection } from '@/domain';
 
 const STATUT: Record<Debt['status'], { label: string; tone: 'ok' | 'risque' | 'attention' }> = {
   ouverte: { label: 'En cours', tone: 'attention' },
   reglee: { label: 'Réglée', tone: 'ok' },
-  annulee: { label: 'Annulée (saisie par erreur)', tone: 'attention' },
-  remise: { label: 'Remise par accord', tone: 'ok' },
+  annulee: { label: 'Supprimée', tone: 'attention' },
+  remise: { label: 'Effacée par accord', tone: 'ok' },
 };
 
 export default function Dettes() {
   const { snapshot } = useFinance();
   const [tab, setTab] = useState<DebtDirection>('je_dois');
   const [adding, setAdding] = useState(false);
-  if (!snapshot) return <Screen><Title>Dettes</Title></Screen>;
+  if (!snapshot) return <Screen title="Dettes"><Label muted>Chargement…</Label></Screen>;
 
   const debts = (snapshot.debts ?? []).filter((d) => d.direction === tab);
   const open = debts.filter((d) => d.status === 'ouverte');
   const total = open.reduce((s, d) => s + remainingOf(d), 0);
 
   return (
-    <Screen>
-      <Title>Dettes</Title>
-      <Button label="Crédits (banque, microfinance) : simuler, suivre, rembourser" variant="secondaire" onPress={() => router.push('/credits')} />
-      <Choice label="Afficher" value={tab} onChange={setTab} options={[{ value: 'je_dois', label: 'Je dois' }, { value: 'on_me_doit', label: 'On me doit' }]} />
-      <Card tone={total ? 'attention' : 'ok'}>
-        <Label muted>{tab === 'je_dois' ? 'Reste à rembourser' : 'Reste à recevoir'}</Label>
-        <Title>{formatFcfa(total)}</Title>
-        {tab === 'on_me_doit' ? <Label muted>Une créance est incertaine par défaut : elle n’entre pas dans la vue standard tant que vous ne la marquez pas attendue.</Label> : null}
-      </Card>
+    <Screen title="Dettes">
+      <Choice label="" value={tab} onChange={(t) => { setTab(t); setAdding(false); }} options={[{ value: 'je_dois', label: 'Je dois' }, { value: 'on_me_doit', label: 'On me doit' }]} />
+      <SummaryCard label={tab === 'je_dois' ? 'Reste à payer' : 'Reste à recevoir'} amount={`${formatFcfa(total)} CFA`} tone={tab === 'je_dois' ? 'lavande' : 'menthe'}>
+        {tab === 'on_me_doit' && total ? <Text style={{ fontSize: 14, color: C.secondaire }}>Par prudence, cet argent n’est pas compté dans « Je peux dépenser » tant que vous n’êtes pas sûr de le recevoir.</Text> : null}
+      </SummaryCard>
       {adding ? <NewDebtForm direction={tab} onDone={() => setAdding(false)} /> : (
-        <Button label={tab === 'je_dois' ? 'Ajouter une dette' : 'Ajouter une créance'} onPress={() => setAdding(true)} />
+        <Button variant="secondaire" icon="add" label={tab === 'je_dois' ? 'J’ai emprunté à quelqu’un' : 'J’ai prêté à quelqu’un'} onPress={() => setAdding(true)} />
       )}
-      {debts.length === 0 ? <Label muted>Aucune {tab === 'je_dois' ? 'dette' : 'créance'} enregistrée.</Label> : null}
+      {debts.length === 0 ? <Label muted>{tab === 'je_dois' ? 'Vous ne devez rien à personne.' : 'Personne ne vous doit d’argent.'}</Label> : null}
       {[...open, ...debts.filter((d) => d.status !== 'ouverte')].map((d) => <DebtCard key={d.id} debt={d} />)}
+      {tab === 'je_dois' ? (
+        <Row icon="business-outline" title="Crédits de banque ou microfinance" sub="Voir le vrai coût avant de signer, suivre, rembourser" onPress={() => router.push('/credits')} />
+      ) : null}
     </Screen>
   );
 }
@@ -56,8 +57,7 @@ function NewDebtForm({ direction, onDone }: { direction: DebtDirection; onDone: 
   async function save() {
     const value = parseFcfa(amount);
     if (!person.trim()) return setError('Indiquez la personne.');
-    if (!value) return setError('Montant en francs entiers.');
-    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Date au format AAAA-MM-JJ, ou laissez vide.');
+    if (!value) return setError('Indiquez le montant.');
     const ok = await run((repo) => repo.addDebt({
       direction, person: person.trim(), initial: value, dueDate: date || undefined, walletId: walletId || undefined,
       certainty: direction === 'on_me_doit' ? certainty : undefined,
@@ -67,63 +67,115 @@ function NewDebtForm({ direction, onDone }: { direction: DebtDirection; onDone: 
 
   return (
     <Card>
-      <Field label="Personne" value={person} onChangeText={setPerson} />
-      <Field label="Montant (F CFA)" value={amount} onChangeText={setAmount} keyboardType="number-pad" />
-      <Field label="Date prévue (AAAA-MM-JJ, facultative)" value={date} onChangeText={setDate} />
-      <Choice label="Portefeuille" value={walletId} onChange={setWalletId} options={wallets.map((w) => ({ value: w.id, label: w.name }))} />
+      <Field label="Qui ?" icon="person-outline" value={person} onChangeText={setPerson} placeholder="Prénom" />
+      <AmountField label="Combien ?" value={parseFcfa(amount)} onChange={(v) => setAmount(v === null ? '' : String(v))} />
+      {date ? (
+        <>
+          <DateField label="À rembourser le" value={date} onChange={setDate} today={snapshot!.today} />
+          <Button variant="secondaire" label="Pas de date précise" onPress={() => setDate('')} />
+        </>
+      ) : (
+        <Button variant="secondaire" label="Ajouter une date (facultatif)" onPress={() => setDate(addDays(snapshot!.today, 7))} />
+      )}
+      <Choice label="Compte" value={walletId} onChange={setWalletId} options={wallets.map((w) => ({ value: w.id, label: w.name }))} />
       {direction === 'on_me_doit' ? (
-        <Choice label="Certitude du remboursement" value={certainty} onChange={setCertainty}
-          options={[{ value: 'incertaine', label: 'Incertain' }, { value: 'attendue', label: 'Attendu à cette date' }]} />
+        <Choice label="Êtes-vous sûr d’être remboursé ?" value={certainty} onChange={setCertainty}
+          options={[{ value: 'incertaine', label: 'Pas sûr' }, { value: 'attendue', label: 'Oui, à cette date' }]} />
       ) : null}
       {error ? <Status tone="risque">{error}</Status> : null}
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Button label="Enregistrer" disabled={busy} onPress={save} /></View>
-        <View style={{ flex: 1 }}><Button label="Fermer" variant="secondaire" onPress={onDone} /></View>
-      </View>
+      <Button label="Enregistrer" disabled={busy} onPress={save} />
+      <Button label="Fermer" variant="lien" onPress={onDone} />
     </Card>
+  );
+}
+
+function Line({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.bord }}>
+      <Text style={{ fontSize: 16, color: C.texte }}>{label}</Text>
+      <Text style={{ fontSize: 17, fontWeight: '700', color: C.texte }}>{value}</Text>
+    </View>
   );
 }
 
 function DebtCard({ debt }: { debt: Debt }) {
   const { snapshot } = useFinance();
   const wallets = (snapshot?.wallets ?? []).filter((w) => w.everyday);
-  const [amount, setAmount] = useState('');
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState<number | null>(null);
   const [walletId, setWalletId] = useState(debt.walletId ?? wallets[0]?.id ?? '');
+  const [more, setMore] = useState(false);
   const pay = useWrite('remboursement');
   const st = STATUT[debt.status];
   const rest = remainingOf(debt);
-  const value = parseFcfa(amount);
-  const localError = amount && value !== null ? checkPayment(debt, value) : amount ? 'Montant invalide.' : null;
+  const localError = amount !== null ? checkPayment(debt, amount) : null;
+  const owe = debt.direction === 'je_dois';
 
   return (
     <Card>
-      <Label>{debt.person}</Label>
-      <Status tone={st.tone}>{st.label}</Status>
-      <Label>Reste {formatFcfa(rest)} sur {formatFcfa(debt.initial)} · payé {formatFcfa(paidOf(debt))}</Label>
-      <Label muted>{debt.dueDate ? `Échéance : ${formatDateFr(debt.dueDate)}` : 'Sans date'}{debt.direction === 'on_me_doit' ? ` · ${debt.certainty === 'attendue' ? 'attendue' : 'incertaine'}` : ''}</Label>
-      {debt.payments.map((p) => (
-        <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ flex: 1 }}><Label muted>{formatDateFr(p.date)} · {formatFcfa(p.amount)}</Label></View>
-          <Button label="Annuler" variant="secondaire" hint={`Annule le paiement de ${formatFcfa(p.amount)} et recalcule le reste`}
-            disabled={pay.busy} onPress={() => pay.run((repo) => repo.cancelDebtPayment(p.id))} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: C.lavandeClair, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="person-outline" size={26} color={C.texte} />
         </View>
-      ))}
-      {debt.status === 'ouverte' ? (
+        <Text style={{ fontSize: 22, fontWeight: '800', color: C.texte, flex: 1 }}>{debt.person}</Text>
+        {debt.status !== 'ouverte' ? <Status tone={st.tone}>{st.label}</Status> : null}
+      </View>
+      {owe ? (
         <>
-          <Field label={debt.direction === 'je_dois' ? 'Montant remboursé (F)' : 'Montant reçu (F)'} value={amount} onChangeText={setAmount}
-            keyboardType="number-pad" error={localError} />
-          <Choice label="Portefeuille" value={walletId} onChange={setWalletId} options={wallets.map((w) => ({ value: w.id, label: w.name }))} />
-          {pay.error ? <Status tone="risque">{pay.error}</Status> : null}
-          <Button label="Enregistrer le paiement" disabled={pay.busy || !value || !!localError}
-            onPress={async () => {
-              if (await pay.run((repo, clientKey) => repo.payDebt({ clientKey, debtId: debt.id, amount: value!, walletId, date: snapshot!.today })))
-                setAmount('');
-            }} />
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Button label="Remise par accord" variant="secondaire" disabled={pay.busy} onPress={() => pay.run((repo) => repo.setDebtStatus(debt.id, 'remise'))} /></View>
-            <View style={{ flex: 1 }}><Button label="Annuler la dette" variant="secondaire" disabled={pay.busy} onPress={() => pay.run((repo) => repo.setDebtStatus(debt.id, 'annulee'))} /></View>
-          </View>
+          <Line label="Dette initiale" value={formatFcfa(debt.initial)} />
+          <Line label="Déjà remboursé" value={formatFcfa(paidOf(debt))} />
         </>
+      ) : (
+        <>
+          <Text style={{ fontSize: 22, fontWeight: '800', color: C.texte, paddingVertical: 6 }}>{formatFcfa(rest)} CFA</Text>
+          <View style={{ height: 1, backgroundColor: C.bord }} />
+          <Text style={{ fontSize: 16, color: C.texte, paddingVertical: 4 }}>{debt.certainty === 'attendue' ? 'Remboursement attendu' : 'Rentrée incertaine'}</Text>
+        </>
+      )}
+      {debt.dueDate ? <Text style={{ fontSize: 15, color: C.secondaire }}>À rembourser le {formatDateFr(debt.dueDate)}</Text> : null}
+
+      {debt.status === 'ouverte' && !open ? (
+        <Button label={owe ? 'Noter un remboursement' : 'Noter un règlement'} onPress={() => setOpen(true)} />
+      ) : null}
+      {debt.status === 'ouverte' && open ? (
+        <>
+          <AmountField label={owe ? 'Combien avez-vous remboursé ?' : 'Combien avez-vous reçu ?'} value={amount} onChange={setAmount} error={localError} autoFocus
+            hint={`Il reste ${formatFcfa(rest)}.`} />
+          <Choice label="Avec quel compte ?" value={walletId} onChange={setWalletId} options={wallets.map((w) => ({ value: w.id, label: w.name }))} />
+          {pay.error ? <Status tone="risque">{pay.error}</Status> : null}
+          <Button label="Enregistrer" disabled={pay.busy || !amount || !!localError}
+            onPress={async () => {
+              if (await pay.run((repo, clientKey) => repo.payDebt({ clientKey, debtId: debt.id, amount: amount!, walletId, date: snapshot!.today }))) {
+                setAmount(null);
+                setOpen(false);
+              }
+            }} />
+          <Button label="Fermer" variant="lien" onPress={() => setOpen(false)} />
+        </>
+      ) : null}
+
+      {debt.payments.length || debt.status === 'ouverte' ? (
+        <Pressable onPress={() => setMore(!more)} accessibilityRole="button" accessibilityState={{ expanded: more }}>
+          <Text style={{ color: C.violet, fontWeight: '600', fontSize: 15 }}>{more ? '− Moins' : '+ Historique et autres actions'}</Text>
+        </Pressable>
+      ) : null}
+      {more ? (
+        <View style={{ gap: 8 }}>
+          {debt.payments.map((p) => (
+            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flex: 1 }}><Label muted>{formatDateFr(p.date)} · {formatFcfa(p.amount)}</Label></View>
+              <Button label="Annuler" variant="lien" hint={`Annule le paiement de ${formatFcfa(p.amount)} et recalcule le reste`}
+                disabled={pay.busy} onPress={() => pay.run((repo) => repo.cancelDebtPayment(p.id))} />
+            </View>
+          ))}
+          {debt.status === 'ouverte' ? (
+            <>
+              <Button label={owe ? 'On m’a fait grâce du reste' : 'Je fais grâce du reste'} variant="secondaire" disabled={pay.busy}
+                onPress={() => pay.run((repo) => repo.setDebtStatus(debt.id, 'remise'))} />
+              <Button label="Supprimer (saisie par erreur)" variant="lien" disabled={pay.busy} onPress={() => pay.run((repo) => repo.setDebtStatus(debt.id, 'annulee'))} />
+            </>
+          ) : null}
+        </View>
       ) : null}
     </Card>
   );

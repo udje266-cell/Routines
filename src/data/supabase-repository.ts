@@ -117,7 +117,8 @@ export class SupabaseRepository implements FinanceRepository {
   }
 
   async addWallet(w: NewWallet) {
-    await run(this.db.from('wallets').insert({ name: w.name, kind: w.kind, everyday: w.everyday, opening_balance: w.openingBalance }));
+    const row = await run(this.db.from('wallets').insert({ name: w.name, kind: w.kind, everyday: w.everyday, opening_balance: w.openingBalance }).select('id').single());
+    return (row as { id: string }).id;
   }
 
   async addPlanned(p: NewPlanned) {
@@ -246,6 +247,10 @@ export class SupabaseRepository implements FinanceRepository {
 
   async reschedulePlanned(id: string, date: string) {
     await run(this.db.from('planned_items').update({ due_date: date }).eq('id', id));
+  }
+
+  async deletePlanned(id: string) {
+    await run(this.db.from('planned_items').delete().eq('id', id));
   }
 
   async deleteAccount() {

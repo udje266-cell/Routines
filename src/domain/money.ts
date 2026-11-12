@@ -6,10 +6,10 @@ export function assertFrancs(n: number): Francs {
   return n;
 }
 
-/** 30000 → « 30 000 F » (espace insécable fine). */
+/** 30000 → « 30 000 F » (espace insécable : visible même en gras, jamais coupée en fin de ligne). */
 export function formatFcfa(n: Francs): string {
   const sign = n < 0 ? '−' : '';
-  const digits = Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const digits = Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
   return `${sign}${digits} F`;
 }
 

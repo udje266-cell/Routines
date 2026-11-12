@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Platform } from 'react-native';
 
 import { Button, Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { NumberField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { ConnectionRequiredError, RefusedError } from '@/data/repository';
 import { ensurePermission } from '@/lib/notifications';
@@ -69,8 +70,8 @@ export default function Reglages() {
                 <Choice label="Échéances" value={String(r.daysBefore) as '0' | '1' | '2'}
                   onChange={(v) => setPrefs({ ...prefs, reminders: { ...r, daysBefore: Number(v) } })}
                   options={[{ value: '0', label: 'Le jour même' }, { value: '1', label: 'La veille' }, { value: '2', label: '2 jours avant' }]} />
-                <Field label="Heure d’envoi (0 à 23)" value={String(r.hour)} keyboardType="number-pad"
-                  onChangeText={(t) => { const h = Number(t); if (h >= 0 && h <= 23) setPrefs({ ...prefs, reminders: { ...r, hour: h } }); }} />
+                <NumberField label="Heure d’envoi (0 à 23)" value={String(r.hour)}
+                  onChange={(t) => { const h = Number(t); if (t !== '' && h >= 0 && h <= 23) setPrefs({ ...prefs, reminders: { ...r, hour: h } }); }} />
                 <Choice label="Afficher noms et montants dans les notifications" value={r.showDetails ? 'oui' : 'non'}
                   onChange={(v) => setPrefs({ ...prefs, reminders: { ...r, showDetails: v === 'oui' } })}
                   options={[{ value: 'non', label: 'Non (recommandé)' }, { value: 'oui', label: 'Oui' }]} />
@@ -84,7 +85,7 @@ export default function Reglages() {
       {repo?.mode === 'compte' ? (
         <Card tone="risque">
           <Label muted>Supprimer mon compte</Label>
-          <Label>Supprime définitivement votre compte et toutes vos données : portefeuilles, opérations, dettes, épargne, dépenses mensuelles. Cette action est irréversible.</Label>
+          <Label>Supprime définitivement votre compte et toutes vos données : comptes, opérations, dettes, épargne, factures du mois. Cette action est irréversible.</Label>
           <Field label="Tapez SUPPRIMER pour confirmer" value={confirm} onChangeText={setConfirm} autoCapitalize="characters" />
           <Button label="Supprimer définitivement" disabled={busy || confirm.trim() !== 'SUPPRIMER'} onPress={remove} />
         </Card>

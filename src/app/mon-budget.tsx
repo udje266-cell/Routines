@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, Card, Choice, Label, Screen, Status, Title } from '@/components/ui';
+import { AmountField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import {
   adviseSavings, currentCycle, formatDateFr, formatFcfa, incomeStats, parseFcfa, progressOf, REPERES_ABIDJAN, simulateScenario,
@@ -59,9 +60,9 @@ export default function MonBudget() {
       <Button variant="secondaire" label="Cycle et enveloppes (plafonds, budget plaisir)" onPress={() => router.push('/enveloppes')} />
       <Card>
         <Label muted>Prérempli avec la moyenne de vos 3 derniers mois et les charges prévues sur 30 jours. Modifiez pour simuler.</Label>
-        <Field label="Revenu principal par mois (F)" value={income} onChangeText={setIncome} keyboardType="number-pad" />
-        <Field label="Petites rentrées par mois, estimation (F)" value={small} onChangeText={setSmall} keyboardType="number-pad" />
-        <Field label="Charges essentielles par mois (loyer, factures, transport, repas)" value={essentials} onChangeText={setEssentials} keyboardType="number-pad" />
+        <AmountField label="Revenu principal par mois (F)" value={parseFcfa(income)} onChange={(v) => setIncome(v === null ? '' : String(v))} />
+        <AmountField label="Petites sommes reçues par mois (environ)" value={parseFcfa(small)} onChange={(v) => setSmall(v === null ? '' : String(v))} />
+        <AmountField label="Charges essentielles par mois (loyer, factures, transport, repas)" value={parseFcfa(essentials)} onChange={(v) => setEssentials(v === null ? '' : String(v))} />
         <Label muted>
           Repères Abidjan : woro-woro {REPERES_ABIDJAN.trajet.woroWoro.join('–')} F le trajet, repas local
           {' '}{formatFcfa(REPERES_ABIDJAN.repasLocal.yopougon)}–{formatFcfa(REPERES_ABIDJAN.repasLocal.cocody)}, studio Cocody/Riviera
@@ -83,15 +84,15 @@ export default function MonBudget() {
       </Card>
 
       <Card tone={pace?.status === 'derapage' ? 'risque' : pace?.status === 'attention' ? 'attention' : undefined}>
-        <Label muted>Rythme du cycle ({formatDateFr(cycleStart)} → {formatDateFr(cycleEnd)})</Label>
-        <Field label="Enveloppe du quotidien pour le mois (F)" value={plannedSpend} onChangeText={setPlannedSpend} keyboardType="number-pad" />
+        <Label muted>Mon rythme ce mois-ci ({formatDateFr(cycleStart)} → {formatDateFr(cycleEnd)})</Label>
+        <AmountField label="Ce que je veux dépenser au quotidien ce mois-ci" value={parseFcfa(plannedSpend)} onChange={(v) => setPlannedSpend(v === null ? '' : String(v))} />
         {pace ? (
           <>
             <Label>Dépensé ce mois : {formatFcfa(pace.spent)} · revenu principal reçu : {formatFcfa(stats.cycleMain)}</Label>
             <Label>{pace.smallIncome.count} petites sommes reçues ce mois, soit {formatFcfa(pace.smallIncome.total)} au total.</Label>
             <Status tone={pace.status === 'dans_le_plan' ? 'ok' : pace.status === 'attention' ? 'attention' : 'risque'}>
               À ce rythme : {formatFcfa(pace.projectedSpend)} dépensés en fin de mois
-              {pace.overrun ? `, soit ${formatFcfa(pace.overrun)} au-delà de l’enveloppe.` : '.'}
+              {pace.overrun ? `, soit ${formatFcfa(pace.overrun)} de plus que prévu.` : '.'}
             </Status>
             <Label>Budget du jour jusqu’à la fin du mois : {formatFcfa(pace.dailyAllowance)}</Label>
           </>
@@ -102,8 +103,8 @@ export default function MonBudget() {
         <Label muted>Simulateur de scénario</Label>
         <Choice label="Durée" value={months} onChange={setMonths} options={[{ value: '6', label: '6 mois' }, { value: '12', label: '12 mois' }, { value: '24', label: '24 mois' }]} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}><Field label="Épargne (%)" value={rate} onChangeText={setRate} keyboardType="number-pad" /></View>
-          <View style={{ flex: 1 }}><Field label="Quotidien / jour (F)" value={daily} onChangeText={setDaily} keyboardType="number-pad" /></View>
+          <View style={{ flex: 1 }}><AmountField label="Épargne (%)" value={parseFcfa(rate)} onChange={(v) => setRate(v === null ? '' : String(v))} /></View>
+          <View style={{ flex: 1 }}><AmountField label="Dépenses par jour" value={parseFcfa(daily)} onChange={(v) => setDaily(v === null ? '' : String(v))} /></View>
         </View>
         <Title>{formatFcfa(last.cumulativeSavings)} épargnés en {months} mois</Title>
         {deficitMonths ? (

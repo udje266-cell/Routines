@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { View } from 'react-native';
 
 import { Button, Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { AmountField, DateField, DayOfMonthField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
-import { categoryStatus, currentCycle, cycleBounds, formatDateFr, formatFcfa, parseFcfa } from '@/domain';
+import { addDays, categoryStatus, currentCycle, cycleBounds, formatDateFr, formatFcfa, parseFcfa } from '@/domain';
 
 export default function Enveloppes() {
   const { snapshot } = useFinance();
@@ -15,7 +16,7 @@ export default function Enveloppes() {
   const [category, setCategory] = useState('');
   const [cap, setCap] = useState('');
   const [pleasure, setPleasure] = useState<'oui' | 'non'>('non');
-  if (!snapshot) return <Screen><Title>Enveloppes</Title></Screen>;
+  if (!snapshot) return <Screen><Title>Limites de dépenses</Title></Screen>;
 
   const cycle = currentCycle(snapshot);
   const statuses = categoryStatus(snapshot.categories ?? [], snapshot.operations ?? [], cycle);
@@ -34,7 +35,7 @@ export default function Enveloppes() {
 
   async function saveCap() {
     const value = parseFcfa(cap);
-    if (!category.trim() || value === null) return w.setError('Catégorie et plafond requis.');
+    if (!category.trim() || value === null) return w.setError('Choisissez le poste et la limite.');
     if (await w.run((r) => r.setCategoryCap({ category: category.trim(), cap: value, pleasure: pleasure === 'oui' }))) {
       setCategory('');
       setCap('');
@@ -43,48 +44,48 @@ export default function Enveloppes() {
 
   return (
     <Screen>
-      <Title>Cycle et enveloppes</Title>
+      <Title>Limites de dépenses</Title>
       <Card>
-        <Label muted>Cycle en cours : du {formatDateFr(cycle.start)} au {formatDateFr(cycle.end)}</Label>
-        <Choice label="Type de cycle" value={mode} onChange={setMode}
+        <Label muted>Mois en cours : du {formatDateFr(cycle.start)} au {formatDateFr(cycle.end)}</Label>
+        <Choice label="Mon mois commence" value={mode} onChange={setMode}
           options={[{ value: 'mensuel', label: 'Mensuel (jour de paie)' }, { value: 'libre', label: 'Dates libres (revenus irréguliers)' }]} />
         {mode === 'mensuel' ? (
           <>
-            <Field label="Jour de début (1 à 31)" value={day} onChangeText={setDay} keyboardType="number-pad" />
+            <DayOfMonthField label="Mon mois commence le" value={Number(day) || 1} onChange={(d) => setDay(String(d))} />
             {preview ? <Label muted>Avec ce réglage : du {formatDateFr(preview.start)} au {formatDateFr(preview.end)}. Un jour absent du mois tombe au dernier jour.</Label> : null}
           </>
         ) : (
-          <Field label="Prochain début de cycle (AAAA-MM-JJ)" value={next} onChangeText={setNext} />
+          <DateField label="Prochain début" value={next || addDays(snapshot.today, 7)} onChange={setNext} today={snapshot.today} min={addDays(snapshot.today, 1)} />
         )}
-        <Button label="Enregistrer le cycle" disabled={w.busy} onPress={saveCycle} />
+        <Button label="Enregistrer" disabled={w.busy} onPress={saveCycle} />
       </Card>
 
       <Card>
-        <Label muted>Plafonds du cycle</Label>
-        {statuses.length === 0 ? <Label>Aucune enveloppe. Ajoutez par exemple « Sorties » en budget plaisir.</Label> : null}
+        <Label muted>Mes limites ce mois-ci</Label>
+        {statuses.length === 0 ? <Label>Aucune limite. Exemple : 25 000 F par mois pour les sorties.</Label> : null}
         {statuses.map((c) => (
           <View key={c.category} style={{ gap: 4 }}>
             <Status tone={c.status === 'depasse' ? 'risque' : c.status === 'presque' ? 'attention' : 'ok'}>
               {c.category}{c.pleasure ? ' (plaisir)' : ''} : {formatFcfa(c.spent)} / {formatFcfa(c.cap)}
             </Status>
             <Label muted>{c.left >= 0 ? `Reste ${formatFcfa(c.left)}` : `Dépassé de ${formatFcfa(-c.left)}`}</Label>
-            <Button variant="secondaire" label={`Retirer l’enveloppe ${c.category}`} disabled={w.busy} onPress={() => w.run((r) => r.removeCategoryCap(c.category))} />
+            <Button variant="secondaire" label={`Retirer la limite ${c.category}`} disabled={w.busy} onPress={() => w.run((r) => r.removeCategoryCap(c.category))} />
           </View>
         ))}
       </Card>
 
       <Card>
-        <Label muted>Ajouter ou modifier une enveloppe</Label>
+        <Label muted>Ajouter ou changer une limite</Label>
         <Field label="Catégorie (ex. Sorties, Jeux, Achats en ligne)" value={category} onChangeText={setCategory} />
-        <Field label="Plafond par cycle (F)" value={cap} onChangeText={setCap} keyboardType="number-pad" />
+        <AmountField label="Maximum par mois" value={parseFcfa(cap)} onChange={(v) => setCap(v === null ? '' : String(v))} />
         <Choice label="Budget plaisir" value={pleasure} onChange={setPleasure} options={[{ value: 'non', label: 'Non' }, { value: 'oui', label: 'Oui' }]} />
         {(() => {
           const old = snapshot.categories?.find((c) => c.category === category.trim());
           const v = parseFcfa(cap);
-          return old && v !== null ? <Label>Conséquence : plafond {formatFcfa(old.cap)} → {formatFcfa(v)} ({v >= old.cap ? '+' : '−'}{formatFcfa(Math.abs(v - old.cap))}).</Label> : null;
+          return old && v !== null ? <Label>Avant :  {formatFcfa(old.cap)} → {formatFcfa(v)} ({v >= old.cap ? '+' : '−'}{formatFcfa(Math.abs(v - old.cap))}).</Label> : null;
         })()}
         {w.error ? <Status tone="risque">{w.error}</Status> : null}
-        <Button label="Enregistrer l’enveloppe" disabled={w.busy} onPress={saveCap} />
+        <Button label="Enregistrer la limite" disabled={w.busy} onPress={saveCap} />
       </Card>
     </Screen>
   );

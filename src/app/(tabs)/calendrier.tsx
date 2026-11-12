@@ -1,37 +1,96 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 
 import { PlannedActions } from '@/components/planned-actions';
-import { Card, Choice, Label, Screen, Status, Title } from '@/components/ui';
+import { C, Card, Choice, Label, Screen, Status, SummaryCard } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
-import { forecast, formatDateFr, formatFcfa, type ForecastView } from '@/domain';
+import { forecast, formatDateFr, formatFcfa, type ForecastEvent, type ForecastView } from '@/domain';
+import { itemIcon } from '@/lib/categories';
+
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+const MOIS_COURT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+/** Ligne du calendrier : pastille de date, icône, libellé, montant (vert pour l'argent qui arrive). */
+function DayRow({ e, highlight, onPress, expanded }: { e: ForecastEvent; highlight: boolean; onPress?: () => void; expanded?: boolean }) {
+  const [, m, d] = e.date.split('-').map(Number);
+  const income = e.item.kind === 'rentree';
+  const negative = e.total < 0;
+  const tinted = highlight || negative;
+  return (
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={`${d} ${MOIS[m - 1]}, ${e.item.label}, ${income ? 'plus' : 'moins'} ${formatFcfa(e.item.amount)}${negative ? `. Il vous manquera ${formatFcfa(-e.total)}` : ''}`}
+      accessibilityState={onPress ? { expanded } : undefined}
+      style={{ gap: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: tinted ? 'transparent' : C.bord,
+        backgroundColor: negative ? C.risqueClair : highlight ? C.mentheClair : '#fff' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 50, paddingVertical: 6, borderRadius: 12, alignItems: 'center', backgroundColor: tinted ? 'rgba(255,255,255,0.7)' : C.lavandeClair }}>
+          <Text style={{ fontSize: 19, fontWeight: '800', color: C.texte }}>{d}</Text>
+          <Text style={{ fontSize: 12, color: C.texte }}>{MOIS_COURT[m - 1]}</Text>
+        </View>
+        <Ionicons name={itemIcon(e.item.label, e.item.category, e.item.kind, e.item.source)} size={22} color={C.texte} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.texte }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{e.item.label}</Text>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: income ? C.mentheTexte : C.texte }}>
+            {income ? '+' : '−'}{formatFcfa(e.item.amount)}
+          </Text>
+        </View>
+      </View>
+      {e.overdue || negative ? (
+        <Text style={{ fontSize: 14, color: C.risque, fontWeight: '600' }}>
+          {e.overdue ? 'En retard. ' : ''}{negative ? `Ce jour-là, il vous manquera ${formatFcfa(-e.total)}.` : ''}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
 
 export default function Calendrier() {
   const { snapshot } = useFinance();
   const [view, setView] = useState<ForecastView>('standard');
-  if (!snapshot) return <Screen><Title>Calendrier</Title></Screen>;
+  const [opened, setOpened] = useState<string | null>(null);
+  const [, m0] = (snapshot?.today ?? '2026-01-01').split('-').map(Number);
+  const subtitle = `${MOIS[m0 - 1][0].toUpperCase()}${MOIS[m0 - 1].slice(1)} ${(snapshot?.today ?? '').slice(0, 4)}`;
+  if (!snapshot) return <Screen title="Calendrier" subtitle={subtitle}><Label muted>Chargement…</Label></Screen>;
+
   const fc = forecast(snapshot, view);
-  // Seules les échéances saisies à la main se confirment ici (dettes, épargne et dépenses mensuelles ont leur écran).
+  // Seules les échéances saisies à la main se confirment ici (dettes, épargne et factures du mois ont leur écran).
   const own = new Set(snapshot.planned.map((p) => p.id));
+  const lowest = fc.events.reduce<ForecastEvent | null>((lo, e) => (!lo || e.total < lo.total ? e : lo), null);
+
   return (
-    <Screen>
-      <Title>Calendrier · 60 jours</Title>
-      <Choice label="Vue" value={view} onChange={setView}
-        options={[{ value: 'standard', label: 'Standard' }, { value: 'prudente', label: 'Prudente (sans rentrées attendues)' }]} />
-      <Card><Label>Solde réel du quotidien : {formatFcfa(fc.start.total)}</Label></Card>
+    <Screen title="Calendrier" subtitle={subtitle}>
+      <Choice label="" value={view} onChange={setView}
+        options={[{ value: 'standard', label: 'Prévu' }, { value: 'prudente', label: 'Prudent' }]} />
+      {view === 'prudente' ? <Label muted>Prudent : sans l’argent attendu, au cas où il n’arriverait pas à temps.</Label> : null}
+
       {fc.lateIncomes.map((i) => (
         <Card key={i.id} tone="attention">
-          <Status tone="attention">Rentrée en retard : {i.label} ({formatFcfa(i.amount)}), attendue le {formatDateFr(i.date)}. Elle est sortie de la prévision jusqu’à confirmation ou replanification.</Status>
+          <Status tone="attention">« {i.label} » ({formatFcfa(i.amount)}) devait arriver le {formatDateFr(i.date)}. Il n’est plus compté tant que vous ne l’avez pas reçu.</Status>
           {own.has(i.id) ? <PlannedActions item={i} /> : null}
         </Card>
       ))}
-      {fc.events.map((e) => (
-        <Card key={e.item.id} tone={e.total < 0 ? 'risque' : undefined}>
-          <Label muted>{formatDateFr(e.date)}{e.overdue ? ' · en retard' : ''}</Label>
-          <Label>{e.item.label} · {e.item.kind === 'rentree' ? '+' : '−'}{formatFcfa(e.item.amount)}</Label>
-          {e.total < 0 ? <Status tone="risque">Total prévu : {formatFcfa(e.total)}</Status> : <Label muted>Total prévu : {formatFcfa(e.total)}</Label>}
-          {own.has(e.item.id) && (e.item.kind === 'rentree' || e.date <= snapshot.today) ? <PlannedActions item={e.item} /> : null}
-        </Card>
-      ))}
+
+      {fc.events.length === 0 ? <Label muted>Rien de prévu pour les 60 prochains jours.</Label> : null}
+      {fc.events.map((e, idx) => {
+        const actionable = own.has(e.item.id) && (e.item.kind === 'rentree' || e.date <= snapshot.today);
+        return (
+          <View key={e.item.id} style={{ gap: 8 }}>
+            <DayRow e={e} highlight={idx === 0} expanded={opened === e.item.id}
+              onPress={actionable ? () => setOpened(opened === e.item.id ? null : e.item.id) : undefined} />
+            {actionable && opened === e.item.id ? <Card><PlannedActions item={e.item} /></Card> : null}
+          </View>
+        );
+      })}
+
+      {lowest ? (
+        <SummaryCard label={`Solde prévu le ${Number(lowest.date.slice(8))} (le plus bas)`} amount={`${formatFcfa(lowest.total)} CFA`}
+          tone={lowest.total < 0 ? 'rouge' : 'lavande'}>
+          <Text style={{ fontSize: 15, color: C.secondaire }}>
+            Aujourd’hui : {formatFcfa(fc.start.total)}. {lowest.total < 0 ? 'Il faudra trouver de l’argent ou reporter une dépense.' : 'Vous restez au-dessus de zéro.'}
+          </Text>
+        </SummaryCard>
+      ) : null}
     </Screen>
   );
 }

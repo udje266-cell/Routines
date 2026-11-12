@@ -136,5 +136,5 @@ describe('Recette — Récurrence', () => {
 });
 
 it('formatFcfa', () => {
-  expect(formatFcfa(30000)).toBe('30 000 F');
+  expect(formatFcfa(30000)).toBe('30 000 F');
 });

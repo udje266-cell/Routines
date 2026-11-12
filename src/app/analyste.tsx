@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { Button, C, Card, Choice, Field, Hero, HeroText, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, C, Card, Choice, Hero, HeroText, Label, Screen, Status, Title } from '@/components/ui';
+import { AmountField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import {
   advise, categoryTrends, financialHealth, formatDateFr, formatFcfa, futureValue, monthlyHistory, netWorth, parseFcfa,
@@ -93,7 +94,7 @@ export default function Analyste() {
             <Bar value={m.spending} max={histMax} color={m.spending > m.income ? C.risque : C.marine} />
           </View>
         ))}
-        <Label muted>Menthe : rentrées · marine : dépenses (rouge si elles dépassent les rentrées).</Label>
+        <Label muted>Vert : argent reçu · foncé : dépenses (rouge si elles dépassent ce qui est reçu).</Label>
       </Card>
 
       <Card>
@@ -136,8 +137,8 @@ function Placements({ emergencyComplete }: { emergencyComplete: boolean }) {
         <Status tone="attention">Priorité : un fonds d’urgence de 3 mois de charges sur un livret disponible à tout moment, avant tout placement bloqué.</Status>
       ) : null}
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ flex: 1 }}><Field label="Capital de départ (F)" value={initial} onChangeText={setInitial} keyboardType="number-pad" /></View>
-        <View style={{ flex: 1 }}><Field label="Versement / mois (F)" value={monthly} onChangeText={setMonthly} keyboardType="number-pad" /></View>
+        <View style={{ flex: 1 }}><AmountField label="Capital de départ (F)" value={parseFcfa(initial)} onChange={(v) => setInitial(v === null ? '' : String(v))} /></View>
+        <View style={{ flex: 1 }}><AmountField label="Versement / mois (F)" value={parseFcfa(monthly)} onChange={(v) => setMonthly(v === null ? '' : String(v))} /></View>
       </View>
       <Choice label="Horizon" value={months} onChange={setMonths} options={[{ value: '12', label: '1 an' }, { value: '36', label: '3 ans' }, { value: '60', label: '5 ans' }]} />
       <Label>Vous versez {formatFcfa(invested)} au total.</Label>

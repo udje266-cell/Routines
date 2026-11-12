@@ -152,3 +152,25 @@ export function upcomingEssentials(snap: Snapshot): Francs {
     .filter((p) => p.kind === 'sortie' && p.source !== 'achat' && p.date <= end)
     .reduce((s, p) => s + p.amount, 0);
 }
+
+export interface SafeToSpend {
+  /** Ce qu'on peut dépenser par jour d'ici la prochaine paie sans compromettre aucune facture. */
+  perDay: Francs;
+  /** Reste après toutes les sorties prévues avant la prochaine paie (négatif = il manque de l'argent). */
+  afterBills: Francs;
+  /** Jours couverts (aujourd'hui inclus) jusqu'à la veille de la prochaine paie, ou fin de l'horizon. */
+  days: number;
+  until: CivilDate;
+  nextIncome: PlannedItem | null;
+}
+
+/**
+ * « Je peux dépenser aujourd'hui » : le plus bas solde prévu avant la prochaine rentrée datée
+ * (factures, crédits, épargne prévue déjà retirés), réparti sur les jours restants.
+ */
+export function safeToSpend(snap: Snapshot, fallbackEnd?: CivilDate): SafeToSpend {
+  const m = marginUntilNextIncome(snap);
+  const until = m.nextIncome ? addDays(m.nextIncome.date, -1) : fallbackEnd ?? addDays(snap.today, 29);
+  const days = Math.max(1, Math.round((Date.parse(until) - Date.parse(snap.today)) / 86_400_000) + 1);
+  return { perDay: Math.max(0, Math.floor(m.amount / days)), afterBills: m.amount, days, until, nextIncome: m.nextIncome };
+}
