@@ -6,7 +6,7 @@
 // Lancer : npm run test:integration  (après `npx supabase start`)
 import { createClient } from '@supabase/supabase-js';
 
-import { categoryStatus, currentCycle, forecast, goalSchedule, incomeStats, progressOf, remainingOf, simulatePurchase } from '@/domain';
+import { amortization, categoryStatus, currentCycle, forecast, goalSchedule, incomeStats, progressOf, remainingOf, simulatePurchase } from '@/domain';
 
 import { RefusedError } from '../repository';
 
@@ -204,5 +204,31 @@ run('Parcours 1 — portefeuille, loyer, achat testé (Supabase local)', () => {
     const v = await db.auth.verifyOtp({ email, token: code, type: 'email' });
     expect(v.error).toBeNull();
     expect(v.data.session).not.toBeNull();
+  });
+
+  it('crédit : déblocage net des frais, échéance unique, remboursement anticipé, prévision', async () => {
+    const repo = new SupabaseRepository(await newUser());
+    const today = '2026-11-12';
+    await repo.addWallet({ name: 'Banque', kind: 'banque', everyday: true, openingBalance: 0 });
+    const bank = (await repo.loadSnapshot(today)).wallets[0];
+    const id = await repo.addLoan({ label: 'Prêt moto', lenderType: 'banque', principal: 1_000_000, annualRate: 0.12, months: 12,
+      firstDueDate: '2026-12-05', method: 'annuite', fees: 20_000, insuranceMonthly: 0, walletId: bank.id });
+    await repo.recordLoanOperation({ clientKey: 'deblocage-moto-01', loanId: id, installment: 0, amount: 980_000, walletId: bank.id, date: today });
+    let snap = await repo.loadSnapshot(today);
+    expect(snap.wallets[0].balance).toBe(980_000);
+    expect(snap.loans![0]).toMatchObject({ disbursed: true, paid: [] });
+    // Le déblocage n'est pas un revenu.
+    expect(forecast(snap).events[0]).toMatchObject({ date: '2026-12-05' });
+
+    const pay = { clientKey: 'echeance-moto-01', loanId: id, installment: 1, amount: 88_849, walletId: bank.id, date: '2026-12-05' };
+    await repo.recordLoanOperation(pay);
+    await repo.recordLoanOperation(pay);
+    await repo.recordLoanOperation({ clientKey: 'anticipe-moto-01', loanId: id, installment: null, amount: 200_000, walletId: bank.id, date: '2026-12-20' });
+    snap = await repo.loadSnapshot('2026-12-21');
+    const loan = snap.loans![0];
+    expect(loan.paid).toEqual([1]);
+    expect(loan.extras).toEqual([{ date: '2026-12-20', amount: 200_000 }]);
+    expect(snap.wallets[0].balance).toBe(980_000 - 88_849 - 200_000);
+    expect(amortization(loan, loan.extras).length).toBeLessThan(12);
   });
 });

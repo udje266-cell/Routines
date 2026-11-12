@@ -99,13 +99,13 @@ export function cycleReview(
   return {
     bounds: b,
     income: {
-      main: sum(cyc.filter((o) => o.kind === 'rentree' && !o.debtId && o.incomeType !== 'petite')),
+      main: sum(cyc.filter((o) => o.kind === 'rentree' && !o.debtId && !o.loanId && o.incomeType !== 'petite')),
       small: sum(cyc.filter((o) => o.kind === 'rentree' && o.incomeType === 'petite')),
     },
-    spending: sum(cyc.filter((o) => o.kind === 'sortie' && !o.debtId)) + cyc.reduce((s, o) => s + (o.fee ?? 0), 0),
+    spending: sum(cyc.filter((o) => o.kind === 'sortie' && !o.debtId && !o.loanId)) + cyc.reduce((s, o) => s + (o.fee ?? 0), 0),
     categories: cats,
     pleasure: { cap: pl.reduce((s, c) => s + c.cap, 0), spent: pl.reduce((s, c) => s + c.spent, 0) },
-    debtsPaid: sum(cyc.filter((o) => o.debtId && o.kind === 'sortie')),
+    debtsPaid: sum(cyc.filter((o) => (o.debtId || o.loanId) && o.kind === 'sortie')),
     debtsReceived: sum(cyc.filter((o) => o.debtId && o.kind === 'rentree')),
     saved: cyc.filter((o) => o.kind === 'transfert' && (pocketIds.includes(o.toWalletId ?? '') || pocketIds.includes(o.walletId)))
       .reduce((s, o) => s + (pocketIds.includes(o.toWalletId ?? '') ? o.amount : -o.amount), 0),

@@ -1,11 +1,11 @@
 import {
   addDays, checkPayment, progressOf, statusAfterPayments,
-  type CategoryCap, type CivilDate, type CycleSettings, type IntentRecord, type OccurrenceOverride, type RecurringRule, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet,
+  type CategoryCap, type CivilDate, type CycleSettings, type IntentRecord, type LoanRecord, type OccurrenceOverride, type RecurringRule, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet,
 } from '@/domain';
 
 import {
   RefusedError, type DebtPaymentInput, type FinanceRepository, type GoalMovementInput, type NewDebt, type NewGoal,
-  type NewIntent, type NewOperation, type NewRecurring, type OperationPatch, type SettleInput, type NewPlanned, type NewWallet,
+  type LoanOperationInput, type NewIntent, type NewLoan, type NewOperation, type NewRecurring, type OperationPatch, type SettleInput, type NewPlanned, type NewWallet,
 } from './repository';
 
 /**
@@ -26,6 +26,7 @@ export class DemoRepository implements FinanceRepository {
   private caps: CategoryCap[] = [];
   private today: CivilDate;
   private rules: RecurringRule[] = [];
+  private loans: LoanRecord[] = [];
   private seq = 0;
 
   constructor(today: CivilDate, seed = true) {
@@ -66,6 +67,12 @@ export class DemoRepository implements FinanceRepository {
       rule('demo-internet', 'Internet', 15_000, 5, 'Logement'),
       rule('demo-tontine', 'Tontine', 10_000, 28, 'Famille'),
     ];
+    // Crédit fictif : prêt microfinance de 300 000 F sur 10 mois à 22 %.
+    this.loans = [{
+      id: 'demo-pret', label: 'Prêt microfinance', lenderType: 'microfinance', principal: 300_000, annualRate: 0.22, months: 10,
+      firstDueDate: addDays(today, 8), method: 'annuite', fees: 6_000, insuranceMonthly: 500, walletId: 'demo-wave',
+      paid: [], extras: [], status: 'en_cours', disbursed: true,
+    }];
     this.debts = [
       { id: 'demo-dette', direction: 'je_dois', person: 'Koffi', initial: 20_000, dueDate: addDays(today, 10), walletId: 'demo-wave', status: 'ouverte', payments: [] },
       { id: 'demo-creance', direction: 'on_me_doit', person: 'Awa', initial: 15_000, status: 'ouverte', certainty: 'incertaine', payments: [] },
@@ -114,6 +121,7 @@ export class DemoRepository implements FinanceRepository {
       categories: this.caps.map((c) => ({ ...c })),
       intents: this.intents.map((i) => ({ ...i })),
       cycle: { ...this.cycle },
+      loans: this.loans.map((l) => ({ ...l, paid: [...l.paid], extras: [...l.extras] })),
       recurring: this.rules.map((r) => ({ ...r, overrides: { ...r.overrides }, settled: [...r.settled] })),
     };
   }
@@ -241,6 +249,13 @@ export class DemoRepository implements FinanceRepository {
       if (left < 0) throw new RefusedError('Suppression impossible : l’épargne deviendrait négative.');
       g.movements = g.movements.filter((m) => m.id !== id);
     }
+    if (o.loanId) {
+      // Annuler une opération de crédit la retire de l'échéancier (elle redevient due).
+      const l = this.loans.find((y) => y.id === o.loanId);
+      if (l && o.loanInstallment === 0) l.disbursed = false;
+      else if (l && o.loanInstallment === null) l.extras = l.extras.filter((e) => !(e.date === o.date && e.amount === o.amount));
+      else if (l) l.paid = l.paid.filter((n) => n !== o.loanInstallment);
+    }
     if (o.recurring) {
       const r = this.rules.find((y) => y.id === o.recurring!.ruleId);
       if (r) r.settled = r.settled.filter((d) => d !== o.recurring!.original);
@@ -291,5 +306,34 @@ export class DemoRepository implements FinanceRepository {
 
   async deleteAccount() {
     throw new RefusedError('La découverte n’a pas de compte : quittez-la simplement.');
+  }
+
+  async addLoan(l: NewLoan) {
+    if (!this.wallets.find((w) => w.id === l.walletId)?.everyday) throw new RefusedError('Choisissez un portefeuille du quotidien.');
+    const id = this.id();
+    this.loans.push({ ...l, id, paid: [], extras: [], status: 'en_cours', disbursed: false });
+    return id;
+  }
+
+  async recordLoanOperation(o: LoanOperationInput) {
+    if (this.seen(o.clientKey)) return;
+    const l = this.loans.find((x) => x.id === o.loanId);
+    if (!l) throw new RefusedError('Crédit introuvable');
+    if (o.installment === 0 && (l.disbursed || o.amount !== l.principal - l.fees))
+      throw new RefusedError(`Le déblocage correspond au montant emprunté moins les frais (${l.principal - l.fees} F).`);
+    if (o.installment && l.paid.includes(o.installment)) throw new RefusedError('Cette échéance est déjà enregistrée.');
+    this.apply({
+      id: `op-${o.clientKey}`, kind: o.installment === 0 ? 'rentree' : 'sortie', walletId: o.walletId, amount: o.amount, date: o.date,
+      label: `${o.installment === 0 ? 'Déblocage' : o.installment === null ? 'Remboursement anticipé' : 'Échéance'} : ${l.label}`,
+      category: 'Crédit', loanId: l.id, loanInstallment: o.installment,
+    });
+    if (o.installment === 0) l.disbursed = true;
+    else if (o.installment === null) l.extras.push({ date: o.date, amount: o.amount });
+    else l.paid.push(o.installment);
+  }
+
+  async setLoanStatus(id: string, status: 'en_cours' | 'solde') {
+    const l = this.loans.find((x) => x.id === id);
+    if (l) l.status = status;
   }
 }

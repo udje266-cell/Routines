@@ -19,6 +19,10 @@ export interface Operation {
   goalId?: string;
   /** Règlement d'une occurrence de dépense mensuelle. */
   recurring?: { ruleId: string; original: CivilDate };
+  /** Opération liée à un crédit (déblocage, échéance, remboursement anticipé). */
+  loanId?: string;
+  /** 0 = déblocage, n = échéance n, null = remboursement anticipé. */
+  loanInstallment?: number | null;
 }
 
 export interface IncomeStats {
@@ -38,14 +42,14 @@ export interface IncomeStats {
 export function incomeStats(ops: Operation[], today: CivilDate, cycleStart: CivilDate): IncomeStats {
   const from90 = addDays(today, -89);
   const recent = ops.filter((o) => o.date >= from90 && o.date <= today);
-  const incomes = recent.filter((o) => o.kind === 'rentree' && !o.debtId);
+  const incomes = recent.filter((o) => o.kind === 'rentree' && !o.debtId && !o.loanId);
   const sum = (xs: Operation[]) => xs.reduce((s, o) => s + o.amount, 0);
   const main = incomes.filter((o) => o.incomeType !== 'petite');
   const small = incomes.filter((o) => o.incomeType === 'petite');
   const inCycle = (o: Operation) => o.date >= cycleStart && o.date <= today;
 
   const cycleSpends: CashFlow[] = ops.filter(inCycle).flatMap((o) => {
-    if (o.kind === 'sortie' && !o.debtId) return [{ date: o.date, amount: o.amount + (o.fee ?? 0) }];
+    if (o.kind === 'sortie' && !o.debtId && !o.loanId) return [{ date: o.date, amount: o.amount + (o.fee ?? 0) }];
     if (o.kind === 'transfert' && o.fee) return [{ date: o.date, amount: o.fee }];
     return [];
   });

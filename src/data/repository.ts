@@ -1,4 +1,4 @@
-import type { CategoryCap, Certainty, CivilDate, CycleSettings, OccurrenceOverride, DebtDirection, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
+import type { AmortizationMethod, CategoryCap, Certainty, LenderType, CivilDate, CycleSettings, OccurrenceOverride, DebtDirection, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
 
 export interface NewWallet {
   name: string;
@@ -116,6 +116,33 @@ export interface FinanceRepository {
   reschedulePlanned(id: string, date: CivilDate): Promise<void>;
   /** Supprime définitivement le compte et toutes ses données. */
   deleteAccount(): Promise<void>;
+  /** Crée le crédit et renvoie son identifiant. */
+  addLoan(l: NewLoan): Promise<string>;
+  /** Déblocage (installment 0), échéance n, ou remboursement anticipé (installment null). Atomique et idempotent. */
+  recordLoanOperation(o: LoanOperationInput): Promise<void>;
+  setLoanStatus(id: string, status: 'en_cours' | 'solde'): Promise<void>;
+}
+
+export interface NewLoan {
+  label: string;
+  lenderType: LenderType;
+  principal: Francs;
+  annualRate: number;
+  months: number;
+  firstDueDate: CivilDate;
+  method: AmortizationMethod;
+  fees: Francs;
+  insuranceMonthly: Francs;
+  walletId: string;
+}
+
+export interface LoanOperationInput {
+  clientKey: string;
+  loanId: string;
+  installment: number | null;
+  amount: Francs;
+  walletId: string;
+  date: CivilDate;
 }
 
 export interface NewRecurring {

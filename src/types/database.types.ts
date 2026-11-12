@@ -109,16 +109,42 @@ isOneToOne: false
       referencedColumns: ["user_id","id"]
     }
                   ]
-                },"operations": {
+                },"loans": {
                   Row: {
-                    "amount": number,"category": string | null,"client_key": string,"created_at": string,"debt_id": string | null,"fee": number,"goal_id": string | null,"id": string,"income_type": Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"op_date": string,"planned_item_id": string | null,"recurring_original": string | null,"recurring_rule_id": string | null,"to_wallet_id": string | null,"user_id": string,"wallet_id": string
+                    "annual_rate": number,"created_at": string,"fees": number,"first_due_date": string,"id": string,"insurance_monthly": number,"label": string,"lender_type": Database["public"]['Enums']["lender_type"],"method": Database["public"]['Enums']["amortization_method"],"months": number,"principal": number,"status": Database["public"]['Enums']["loan_status"],"user_id": string,"wallet_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"category"?: string | null,"client_key": string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date": string,"planned_item_id"?: string | null,"recurring_original"?: string | null,"recurring_rule_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id": string
+                    "annual_rate": number,"created_at"?: string,"fees"?: number,"first_due_date": string,"id"?: string,"insurance_monthly"?: number,"label": string,"lender_type": Database["public"]['Enums']["lender_type"],"method"?: Database["public"]['Enums']["amortization_method"],"months": number,"principal": number,"status"?: Database["public"]['Enums']["loan_status"],"user_id"?: string,"wallet_id": string
                   }
                   Update: {
-                    "amount"?: number,"category"?: string | null,"client_key"?: string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind"?: Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date"?: string,"planned_item_id"?: string | null,"recurring_original"?: string | null,"recurring_rule_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id"?: string
+                    "annual_rate"?: number,"created_at"?: string,"fees"?: number,"first_due_date"?: string,"id"?: string,"insurance_monthly"?: number,"label"?: string,"lender_type"?: Database["public"]['Enums']["lender_type"],"method"?: Database["public"]['Enums']["amortization_method"],"months"?: number,"principal"?: number,"status"?: Database["public"]['Enums']["loan_status"],"user_id"?: string,"wallet_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "loans_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallet_balances"
+      referencedColumns: ["user_id","wallet_id"]
+    },{
+      foreignKeyName: "loans_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallets"
+      referencedColumns: ["user_id","id"]
+    }
+                  ]
+                },"operations": {
+                  Row: {
+                    "amount": number,"category": string | null,"client_key": string,"created_at": string,"debt_id": string | null,"fee": number,"goal_id": string | null,"id": string,"income_type": Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"loan_id": string | null,"loan_installment": number | null,"op_date": string,"planned_item_id": string | null,"recurring_original": string | null,"recurring_rule_id": string | null,"to_wallet_id": string | null,"user_id": string,"wallet_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"category"?: string | null,"client_key": string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label"?: string,"loan_id"?: string | null,"loan_installment"?: number | null,"op_date": string,"planned_item_id"?: string | null,"recurring_original"?: string | null,"recurring_rule_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id": string
+                  }
+                  Update: {
+                    "amount"?: number,"category"?: string | null,"client_key"?: string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind"?: Database["public"]['Enums']["planned_kind"],"label"?: string,"loan_id"?: string | null,"loan_installment"?: number | null,"op_date"?: string,"planned_item_id"?: string | null,"recurring_original"?: string | null,"recurring_rule_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id"?: string
                   }
                   Relationships: [
                     {
@@ -132,6 +158,12 @@ isOneToOne: false
       columns: ["user_id","goal_id"]
 isOneToOne: false
       referencedRelation: "goals"
+      referencedColumns: ["user_id","id"]
+    },{
+      foreignKeyName: "operations_user_id_loan_id_fkey"
+      columns: ["user_id","loan_id"]
+isOneToOne: false
+      referencedRelation: "loans"
       referencedColumns: ["user_id","id"]
     },{
       foreignKeyName: "operations_user_id_planned_item_id_fkey"
@@ -357,6 +389,8 @@ isOneToOne: false
 "income_type": Database["public"]['Enums']["income_type"] | null,
 "kind": Database["public"]['Enums']["planned_kind"],
 "label": string,
+"loan_id": string | null,
+"loan_installment": number | null,
 "op_date": string,
 "planned_item_id": string | null,
 "recurring_original": string | null,
@@ -384,6 +418,37 @@ isOneToOne: false
 "income_type": Database["public"]['Enums']["income_type"] | null,
 "kind": Database["public"]['Enums']["planned_kind"],
 "label": string,
+"loan_id": string | null,
+"loan_installment": number | null,
+"op_date": string,
+"planned_item_id": string | null,
+"recurring_original": string | null,
+"recurring_rule_id": string | null,
+"to_wallet_id": string | null,
+"user_id": string,
+"wallet_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "operations"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"record_loan_operation":
+{ Args: { "p_amount": number,"p_client_key": string,"p_date": string,"p_installment": number,"p_loan_id": string,"p_wallet_id": string }; Returns: {
+              "amount": number,
+"category": string | null,
+"client_key": string,
+"created_at": string,
+"debt_id": string | null,
+"fee": number,
+"goal_id": string | null,
+"id": string,
+"income_type": Database["public"]['Enums']["income_type"] | null,
+"kind": Database["public"]['Enums']["planned_kind"],
+"label": string,
+"loan_id": string | null,
+"loan_installment": number | null,
 "op_date": string,
 "planned_item_id": string | null,
 "recurring_original": string | null,
@@ -411,6 +476,8 @@ isOneToOne: false
 "income_type": Database["public"]['Enums']["income_type"] | null,
 "kind": Database["public"]['Enums']["planned_kind"],
 "label": string,
+"loan_id": string | null,
+"loan_installment": number | null,
 "op_date": string,
 "planned_item_id": string | null,
 "recurring_original": string | null,
@@ -441,6 +508,8 @@ isOneToOne: false
 "income_type": Database["public"]['Enums']["income_type"] | null,
 "kind": Database["public"]['Enums']["planned_kind"],
 "label": string,
+"loan_id": string | null,
+"loan_installment": number | null,
 "op_date": string,
 "planned_item_id": string | null,
 "recurring_original": string | null,
@@ -488,6 +557,8 @@ isOneToOne: false
 "income_type": Database["public"]['Enums']["income_type"] | null,
 "kind": Database["public"]['Enums']["planned_kind"],
 "label": string,
+"loan_id": string | null,
+"loan_installment": number | null,
 "op_date": string,
 "planned_item_id": string | null,
 "recurring_original": string | null,
@@ -504,7 +575,7 @@ isOneToOne: false
       } }
           }
           Enums: {
-            "certainty": "attendue"|"incertaine","debt_direction": "je_dois"|"on_me_doit","debt_status": "ouverte"|"reglee"|"annulee"|"remise","goal_status": "actif"|"atteint"|"abandonne","income_type": "principal"|"petite","intent_status": "en_pause"|"achete"|"abandonne"|"replanifie","planned_kind": "sortie"|"rentree"|"transfert","planned_status": "prevue"|"reglee"|"annulee","wallet_kind": "especes"|"wave"|"orange_money"|"banque"|"epargne"
+            "amortization_method": "annuite"|"capital_constant","certainty": "attendue"|"incertaine","debt_direction": "je_dois"|"on_me_doit","debt_status": "ouverte"|"reglee"|"annulee"|"remise","goal_status": "actif"|"atteint"|"abandonne","income_type": "principal"|"petite","intent_status": "en_pause"|"achete"|"abandonne"|"replanifie","lender_type": "banque"|"microfinance"|"autre","loan_status": "en_cours"|"solde","planned_kind": "sortie"|"rentree"|"transfert","planned_status": "prevue"|"reglee"|"annulee","wallet_kind": "especes"|"wave"|"orange_money"|"banque"|"epargne"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -620,7 +691,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "certainty": ["attendue", "incertaine"],"debt_direction": ["je_dois", "on_me_doit"],"debt_status": ["ouverte", "reglee", "annulee", "remise"],"goal_status": ["actif", "atteint", "abandonne"],"income_type": ["principal", "petite"],"intent_status": ["en_pause", "achete", "abandonne", "replanifie"],"planned_kind": ["sortie", "rentree", "transfert"],"planned_status": ["prevue", "reglee", "annulee"],"wallet_kind": ["especes", "wave", "orange_money", "banque", "epargne"]
+            "amortization_method": ["annuite", "capital_constant"],"certainty": ["attendue", "incertaine"],"debt_direction": ["je_dois", "on_me_doit"],"debt_status": ["ouverte", "reglee", "annulee", "remise"],"goal_status": ["actif", "atteint", "abandonne"],"income_type": ["principal", "petite"],"intent_status": ["en_pause", "achete", "abandonne", "replanifie"],"lender_type": ["banque", "microfinance", "autre"],"loan_status": ["en_cours", "solde"],"planned_kind": ["sortie", "rentree", "transfert"],"planned_status": ["prevue", "reglee", "annulee"],"wallet_kind": ["especes", "wave", "orange_money", "banque", "epargne"]
           }
         }
 } as const

@@ -1,5 +1,6 @@
 import type { CivilDate } from './dates';
 import type { CategoryCap, CycleSettings, IntentRecord } from './cycle';
+import type { LoanRecord } from './credit';
 import type { Debt } from './dettes';
 import type { Francs } from './money';
 import type { SavingsGoal } from './objectifs';
@@ -42,6 +43,8 @@ export interface PlannedItem {
   source?: 'facture' | 'dette' | 'epargne' | 'revenu' | 'achat';
   /** Occurrence d'une dépense mensuelle (pour la marquer payée ou la modifier). */
   recurring?: { ruleId: string; original: CivilDate };
+  /** Échéance d'un crédit. */
+  loan?: { loanId: string; n: number };
 }
 
 export type ForecastView = 'standard' | 'prudente';
@@ -72,4 +75,5 @@ export interface Snapshot {
   intents?: IntentRecord[];
   cycle?: CycleSettings;
   recurring?: RecurringRule[];
+  loans?: LoanRecord[];
 }

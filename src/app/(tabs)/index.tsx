@@ -151,7 +151,13 @@ export default function Aujourdhui() {
                     {e.overdue ? ' · ⚠ en retard, à couvrir aujourd’hui' : ''}
                   </Label>
                 </View>
-                {e.item.recurring ? (
+                {e.item.loan ? (
+                  <Button variant="secondaire" label="Payé" disabled={intent.busy} hint={`${e.item.label} du ${formatDateFr(e.date)}`}
+                    onPress={() => intent.run((r, clientKey) => r.recordLoanOperation({
+                      clientKey, loanId: e.item.loan!.loanId, installment: e.item.loan!.n, amount: e.item.amount,
+                      walletId: e.item.walletId, date: e.date < snapshot.today ? e.date : snapshot.today,
+                    }))} />
+                ) : e.item.recurring ? (
                   <Button variant="secondaire" label={e.item.kind === 'rentree' ? 'Reçu' : 'Payé'} disabled={intent.busy}
                     hint={`${e.item.label} du ${formatDateFr(e.date)}`}
                     onPress={() => intent.run((r, clientKey) => r.settleOccurrence({

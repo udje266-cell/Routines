@@ -1,5 +1,6 @@
 import { addDays, type CivilDate } from './dates';
 import type { Francs } from './money';
+import { loanToPlanned } from './credit';
 import { debtsToPlanned } from './dettes';
 import { goalsToPlanned } from './objectifs';
 import { recurringToPlanned } from './recurrence';
@@ -11,6 +12,7 @@ export function allPlanned(snap: Snapshot): PlannedItem[] {
     ...snap.planned,
     ...recurringToPlanned(snap.recurring ?? [], snap.today, addDays(snap.today, HORIZON_DAYS - 1)),
     ...debtsToPlanned(snap.debts ?? []),
+    ...(snap.loans ?? []).filter((l) => l.status === 'en_cours').flatMap((l) => loanToPlanned(l, l.paid, l.extras)),
     ...goalsToPlanned(snap.goals ?? [], snap.today),
   ];
 }

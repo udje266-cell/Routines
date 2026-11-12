@@ -29,6 +29,11 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Un achat abandonné reste une intention `abandonne` : jamais d'épargne automatique.
 - Dépenses mensuelles (`recurring_rules`) : occurrences calculées par `recurringToPlanned` (31 jours en arrière pour garder visible une occurrence échue non payée). Une occurrence se règle une seule fois (`settle_occurrence`, unique `(recurring_rule_id, recurring_original)`). « Ce mois-ci » = `recurring_overrides` ; « les suivantes » = `split_recurring_rule`.
 
+## Crédits
+- Moteur `src/domain/credit.ts` : tableau d'amortissement (mensualités constantes arrondies au franc supérieur, ou capital constant ; le capital remboursé égale exactement le montant emprunté), coût total, TEG approché (taux proportionnel), plafond de l'usure UMOA depuis le 1er juin 2026 (14 % banques, 24 % microfinance et autres), repère de capacité d'un tiers du revenu principal (usage bancaire, pas une règle légale), remboursement anticipé (finir plus tôt ou baisser la mensualité, indemnité, comparaison avec l'épargne à 3,5 %), stratégies avalanche et boule de neige.
+- Serveur : table `loans` (conditions figées après une échéance payée), `record_loan_operation` (0 = déblocage net des frais, n = échéance n unique, null = remboursement anticipé).
+- Les opérations de crédit ne sont ni des revenus ni des dépenses du quotidien ; les échéances non payées entrent dans la prévision.
+
 ## Sécurité et confidentialité
 - Récupération d'accès par code à 6 chiffres saisi dans l'application (`src/app/recuperation.tsx`, modèle `supabase/templates/recuperation.html`) : aucun lien d'URL interceptable.
 - Verrou facultatif (`LockGate`) : écran neutre tant que les préférences ne sont pas lues, FLAG_SECURE (pas de capture ni de vignette des récentes) quand le verrou est actif.
@@ -38,7 +43,7 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Intégrité dans un compte : versements, règlements et corrections uniquement depuis/vers un portefeuille du quotidien ; poche d'objectif = portefeuille d'épargne, figée après un versement ; une occurrence réglée doit être une vraie date de la règle.
 
 ## Projet Supabase en ligne
-- Projet `ldfurhmdxvevqwadgfzs` (« Mes Finances », eu-west-1), URL `https://ldfurhmdxvevqwadgfzs.supabase.co`. Migrations appliquées et inscrites dans `supabase_migrations.schema_migrations` ; tests pgTAP rejoués sur le projet (transactions annulées).
+- Projet `ldfurhmdxvevqwadgfzs` (« Mes Finances », eu-west-1), URL `https://ldfurhmdxvevqwadgfzs.supabase.co`. Migrations jusqu'à `20261117000000` appliquées et inscrites dans `supabase_migrations.schema_migrations` ; tests pgTAP rejoués sur le projet (transactions annulées). `20261118000000_credits` reste à appliquer (avec accord).
 - Auth en ligne : mot de passe 8 caractères, confirmation de l'e-mail active, codes à 6 chiffres.
 - **Bloquant avant ouverture au public** : fournisseur SMTP personnalisé à configurer, puis appliquer `supabase/templates/confirmation.html` et `recuperation.html` (le fournisseur par défaut n'envoie que des liens, 2 e-mails/heure, aux seules adresses de l'équipe).
 - `.env.local` (ignoré par Git) contient l'URL et la clé publique ; jamais la clé secrète.

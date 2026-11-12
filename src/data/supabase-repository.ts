@@ -1,13 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  addDays, type CategoryCap, type CivilDate, type CycleSettings, type Debt, type IntentRecord, type OccurrenceOverride, type Operation,
+  addDays, type CategoryCap, type CivilDate, type CycleSettings, type Debt, type IntentRecord, type LoanRecord, type OccurrenceOverride, type Operation,
   type PlannedItem, type RecurringRule, type SavingsGoal, type Wallet,
 } from '@/domain';
 
 import {
   ConnectionRequiredError, RefusedError, type DebtPaymentInput, type FinanceRepository, type GoalMovementInput, type NewDebt,
-  type NewGoal, type NewIntent, type NewOperation, type NewPlanned, type NewRecurring, type NewWallet, type OperationPatch, type SettleInput,
+  type NewGoal, type LoanOperationInput, type NewIntent, type NewLoan, type NewOperation, type NewPlanned, type NewRecurring, type NewWallet, type OperationPatch, type SettleInput,
 } from './repository';
 
 // Lignes brutes de PostgREST, converties explicitement vers les types du domaine.
@@ -40,18 +40,19 @@ export class SupabaseRepository implements FinanceRepository {
 
   async loadSnapshot(today: CivilDate) {
     const from = addDays(today, -120);
-    const [wallets, balances, planned, ops, debts, goals, settings, caps, intents, rules] = await Promise.all([
+    const [wallets, balances, planned, ops, debts, goals, settings, caps, intents, rules, loans] = await Promise.all([
       run(this.db.from('wallets').select('id,name,kind,everyday').order('created_at')),
       run(this.db.from('wallet_balances').select('wallet_id,balance')),
       run(this.db.from('planned_items').select('*').eq('status', 'prevue').order('due_date')),
       // historique récent + tous les mouvements d'objectifs (pour la progression)
-      run(this.db.from('operations').select('*').or(`op_date.gte.${from},goal_id.not.is.null`).order('op_date')),
+      run(this.db.from('operations').select('*').or(`op_date.gte.${from},goal_id.not.is.null,loan_id.not.is.null`).order('op_date')),
       run(this.db.from('debts').select('*, debt_payments(id, amount, paid_on)').order('created_at')),
       run(this.db.from('goals').select('*').order('created_at')),
       run(this.db.from('user_settings').select('*').maybeSingle()),
       run(this.db.from('category_caps').select('category,cap,pleasure').order('category')),
       run(this.db.from('purchase_intents').select('*').gte('created_on', from).order('created_at', { ascending: false })),
       run(this.db.from('recurring_rules').select('*, recurring_overrides(*)').order('day')),
+      run(this.db.from('loans').select('*').order('created_at')),
     ]);
     const st = settings as Row | null;
     const operations = (ops as Row[]).map((o): Operation => ({
@@ -59,6 +60,8 @@ export class SupabaseRepository implements FinanceRepository {
       fee: Number(o.fee), date: o.op_date, label: o.label, category: o.category ?? undefined,
       incomeType: o.income_type ?? undefined, debtId: o.debt_id ?? undefined, goalId: o.goal_id ?? undefined,
       recurring: o.recurring_rule_id ? { ruleId: o.recurring_rule_id, original: o.recurring_original } : undefined,
+      loanId: o.loan_id ?? undefined,
+      loanInstallment: o.loan_installment ?? null,
     }));
     const bal = new Map((balances as { wallet_id: string; balance: number }[]).map((b) => [b.wallet_id, Number(b.balance)]));
     return {
@@ -76,6 +79,17 @@ export class SupabaseRepository implements FinanceRepository {
         startDay: st?.cycle_start_day ?? 1, freeStart: st?.free_start ?? undefined, freeNextStart: st?.free_next_start ?? undefined,
       } satisfies CycleSettings,
       categories: (caps as Row[]).map((c): CategoryCap => ({ category: c.category, cap: Number(c.cap), pleasure: c.pleasure })),
+      loans: (loans as Row[]).map((l): LoanRecord => {
+        const mine = operations.filter((o) => o.loanId === l.id);
+        return {
+          id: l.id, label: l.label, lenderType: l.lender_type, principal: Number(l.principal), annualRate: Number(l.annual_rate),
+          months: l.months, firstDueDate: l.first_due_date, method: l.method, fees: Number(l.fees),
+          insuranceMonthly: Number(l.insurance_monthly), walletId: l.wallet_id, status: l.status,
+          paid: mine.filter((o) => (o.loanInstallment ?? 0) >= 1).map((o) => o.loanInstallment!),
+          extras: mine.filter((o) => o.loanInstallment === null).map((o) => ({ date: o.date, amount: o.amount })),
+          disbursed: mine.some((o) => o.loanInstallment === 0),
+        };
+      }),
       recurring: (rules as Row[]).map((r): RecurringRule => ({
         id: r.id, label: r.label, kind: r.kind, amount: Number(r.amount), day: r.day, start: r.start_date, end: r.end_date ?? undefined,
         walletId: r.wallet_id, category: r.category ?? undefined,
@@ -236,5 +250,23 @@ export class SupabaseRepository implements FinanceRepository {
 
   async deleteAccount() {
     await run(this.db.rpc('delete_my_account'));
+  }
+
+  async addLoan(l: NewLoan) {
+    const row = await run(this.db.from('loans').insert({
+      label: l.label, lender_type: l.lenderType, principal: l.principal, annual_rate: l.annualRate, months: l.months,
+      first_due_date: l.firstDueDate, method: l.method, fees: l.fees, insurance_monthly: l.insuranceMonthly, wallet_id: l.walletId,
+    }).select('id').single());
+    return (row as { id: string }).id;
+  }
+
+  async recordLoanOperation(o: LoanOperationInput) {
+    await run(this.db.rpc('record_loan_operation', {
+      p_client_key: o.clientKey, p_loan_id: o.loanId, p_installment: o.installment, p_amount: o.amount, p_wallet_id: o.walletId, p_date: o.date,
+    }));
+  }
+
+  async setLoanStatus(id: string, status: 'en_cours' | 'solde') {
+    await run(this.db.from('loans').update({ status }).eq('id', id));
   }
 }

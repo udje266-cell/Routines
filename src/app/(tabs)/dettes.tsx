@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -26,6 +27,7 @@ export default function Dettes() {
   return (
     <Screen>
       <Title>Dettes</Title>
+      <Button label="Crédits (banque, microfinance) : simuler, suivre, rembourser" variant="secondaire" onPress={() => router.push('/credits')} />
       <Choice label="Afficher" value={tab} onChange={setTab} options={[{ value: 'je_dois', label: 'Je dois' }, { value: 'on_me_doit', label: 'On me doit' }]} />
       <Card tone={total ? 'attention' : 'ok'}>
         <Label muted>{tab === 'je_dois' ? 'Reste à rembourser' : 'Reste à recevoir'}</Label>
