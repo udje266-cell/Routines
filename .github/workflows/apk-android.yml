@@ -1,9 +1,9 @@
-# Compile l'APK de test de Mes Finances sur GitHub (sans la file d'attente d'Expo)
+# Compile l'APK de test de Mes Finances directement sur GitHub (Gradle, sans Expo ni jeton)
 # et le publie dans une « Release » GitHub, avec un lien de téléchargement direct.
 #
-# Prérequis : un secret de dépôt EXPO_TOKEN (Settings › Secrets and variables › Actions).
-# La clé de signature reste celle conservée par Expo : chaque nouvelle version s'installe
-# par-dessus la précédente.
+# Signature : clé de test standard générée par `expo prebuild` (toujours la même),
+# donc chaque nouvelle version GitHub s'installe par-dessus la précédente.
+# Seules les valeurs PUBLIQUES de Supabase sont embarquées (URL et clé publishable, déjà dans eas.json).
 
 name: APK Android (test)
 
@@ -15,7 +15,6 @@ on:
       - 'src/**'
       - 'assets/**'
       - 'app.json'
-      - 'eas.json'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/apk-android.yml'
@@ -46,19 +45,7 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - name: Vérifier le jeton Expo
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "::error::Ajoutez le secret EXPO_TOKEN (Settings › Secrets and variables › Actions)."
-            exit 1
-          fi
-
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+      - uses: gradle/actions/setup-gradle@v4
 
       - name: Installer les dépendances
         run: npm ci
@@ -66,12 +53,28 @@ jobs:
       - name: Tests du moteur financier
         run: npm test -- --runInBand
 
-      - name: Compiler l'APK (profil preview, clé de signature Expo)
-        run: eas build --platform android --profile preview --local --non-interactive --output mes-finances-preview.apk
+      - name: Valeurs publiques de Supabase (depuis eas.json)
+        run: |
+          node -e "
+            const env = require('./eas.json').build.preview.env;
+            for (const [k, v] of Object.entries(env)) {
+              if (!k.startsWith('EXPO_PUBLIC_')) throw new Error('Seules les variables publiques sont autorisées : ' + k);
+              if (/sb_secret|service_role/.test(v)) throw new Error('Clé secrète interdite dans l’application');
+              require('fs').appendFileSync(process.env.GITHUB_ENV, k + '=' + v + '\n');
+            }"
+
+      - name: Générer le projet Android
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Compiler l'APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
 
       - name: Version
         id: v
-        run: echo "version=$(node -p "require('./app.json').expo.version")" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(node -p "require('./app.json').expo.version")" >> "$GITHUB_OUTPUT"
+          cp android/app/build/outputs/apk/release/app-release.apk mes-finances-preview.apk
 
       - uses: actions/upload-artifact@v4
         with:
@@ -88,3 +91,4 @@ jobs:
           body: |
             APK de test de Mes Finances, compilé par GitHub Actions.
             Sur le téléphone : ouvrir ce lien, télécharger `mes-finances-preview.apk`, puis l'installer.
+            Première installation depuis GitHub : désinstaller d'abord la version installée depuis Expo (autre signature). Les données sont sur le serveur.
