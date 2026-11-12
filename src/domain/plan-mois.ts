@@ -1,6 +1,6 @@
 import { adviseSavings } from './epargne';
-import { addDays, diffDays, type CivilDate } from './dates';
-import { remainingOf } from './dettes';
+import { addDays, type CivilDate } from './dates';
+import { debtShares, type DebtShare } from './dettes';
 import { allPlanned, dailyMinimum, forecast } from './forecast';
 import type { Francs } from './money';
 import { progressOf } from './objectifs';
@@ -41,20 +41,6 @@ export interface MonthPlan {
   left: Francs;
   advice: SavingAdvice;
 }
-
-export interface DebtShare {
-  id: string;
-  person: string;
-  /** Reste dû en tout. */
-  remaining: Francs;
-  /** À prévoir ce mois-ci. */
-  thisMonth: Francs;
-  /** Date limite, si elle existe. */
-  dueDate?: CivilDate;
-}
-
-/** Une dette sans date se rembourse, par défaut, en 3 mois. */
-export const UNDATED_DEBT_MONTHS = 3;
 
 export interface SavingAdvice {
   /** Montant à mettre de côté ce mois-ci (0 si rien ne reste). */
@@ -113,20 +99,7 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
   // Dettes que je dois et qui ne sont pas déjà dans le mois : sans date, sans compte choisi, ou à rembourser plus tard.
   // Le banquier prudent rembourse avant d'épargner : on réserve chaque mois la part nécessaire.
   const alreadyPlanned = new Set(all.filter((e) => e.planned?.source === 'dette').map((e) => e.planned!.id));
-  const debts: DebtShare[] = [];
-  for (const d of snap.debts ?? []) {
-    const remaining = remainingOf(d);
-    if (d.direction !== 'je_dois' || d.status !== 'ouverte' || remaining <= 0 || alreadyPlanned.has(`dette-${d.id}`)) continue;
-    let thisMonth: Francs;
-    if (!d.dueDate) thisMonth = Math.ceil(remaining / UNDATED_DEBT_MONTHS);
-    else if (d.dueDate <= end) thisMonth = remaining; // échue ou due ce mois-ci
-    else {
-      // Mois restants jusqu'à l'échéance, celui-ci compris.
-      const months = Math.max(1, Math.ceil((diffDays(start, d.dueDate) + 1) / 30.4375));
-      thisMonth = Math.ceil(remaining / months);
-    }
-    debts.push({ id: d.id, person: d.person, remaining, thisMonth: Math.min(remaining, thisMonth), dueDate: d.dueDate });
-  }
+  const debts = debtShares(snap.debts ?? [], start, end, (d) => alreadyPlanned.has(`dette-${d.id}`));
   const debtReserve = debts.reduce((s, d) => s + d.thisMonth, 0);
   const left = income - expenses - debtReserve;
 

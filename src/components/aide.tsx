@@ -8,7 +8,7 @@ import { C } from '@/components/ui';
 export const AIDE = {
   peutDepenser: {
     titre: 'Je peux dépenser aujourd’hui',
-    texte: 'C’est ce que vous pouvez dépenser aujourd’hui sans toucher à l’argent de vos factures. L’application a déjà mis de côté le loyer, la CIE, la SODECI… jusqu’à votre prochaine paie, puis a partagé le reste entre les jours qui restent.\n\nSi vous dépensez moins aujourd’hui, le chiffre de demain sera un peu plus grand.',
+    texte: 'C’est ce que vous pouvez dépenser aujourd’hui sans toucher à l’argent de vos factures. L’application a déjà mis de côté le loyer, la CIE, la SODECI… et la part de vos dettes à rembourser, jusqu’à votre prochaine paie, puis a partagé le reste entre les jours qui restent.\n\nSi vous dépensez moins aujourd’hui, le chiffre de demain sera un peu plus grand.',
   },
   manque: {
     titre: 'Il vous manque',

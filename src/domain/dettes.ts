@@ -1,4 +1,4 @@
-import type { CivilDate } from './dates';
+import { diffDays, type CivilDate } from './dates';
 import type { Francs } from './money';
 import type { Certainty, PlannedItem, UndatedDebt } from './types';
 
@@ -67,4 +67,37 @@ export function undatedDebtsOf(debts: Debt[]): UndatedDebt[] {
   return debts
     .filter((d) => d.direction === 'je_dois' && d.status === 'ouverte' && !d.dueDate && remainingOf(d) > 0)
     .map((d) => ({ id: d.id, person: d.person, remaining: remainingOf(d) }));
+}
+
+export interface DebtShare {
+  id: string;
+  person: string;
+  /** Reste dû en tout. */
+  remaining: Francs;
+  /** À prévoir ce mois-ci. */
+  thisMonth: Francs;
+  /** Date limite, si elle existe. */
+  dueDate?: CivilDate;
+}
+
+/** Une dette sans date se rembourse, par défaut, en 3 mois. */
+export const UNDATED_DEBT_MONTHS = 3;
+
+/**
+ * Part des dettes que je dois à prévoir sur la période [start, end] (un mois, ou d'aujourd'hui à la paie),
+ * pour celles qui ne sont pas déjà comptées ailleurs (`skip`) : sans date, 1/3 ; échue ou due dans la période, tout ;
+ * due plus tard, le reste réparti par mois jusqu'à l'échéance. Le banquier prudent rembourse avant d'épargner.
+ */
+export function debtShares(debts: Debt[], start: CivilDate, end: CivilDate, skip: (d: Debt) => boolean = () => false): DebtShare[] {
+  const out: DebtShare[] = [];
+  for (const d of debts) {
+    const remaining = remainingOf(d);
+    if (d.direction !== 'je_dois' || d.status !== 'ouverte' || remaining <= 0 || skip(d)) continue;
+    let thisMonth: Francs;
+    if (!d.dueDate) thisMonth = Math.ceil(remaining / UNDATED_DEBT_MONTHS);
+    else if (d.dueDate <= end) thisMonth = remaining;
+    else thisMonth = Math.ceil(remaining / Math.max(1, Math.ceil((diffDays(start, d.dueDate) + 1) / 30.4375)));
+    out.push({ id: d.id, person: d.person, remaining, thisMonth: Math.min(remaining, thisMonth), dueDate: d.dueDate });
+  }
+  return out;
 }

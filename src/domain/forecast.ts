@@ -1,7 +1,7 @@
 import { addDays, type CivilDate } from './dates';
 import type { Francs } from './money';
 import { loanToPlanned } from './credit';
-import { debtsToPlanned } from './dettes';
+import { debtShares, debtsToPlanned } from './dettes';
 import { goalsToPlanned } from './objectifs';
 import { recurringToPlanned } from './recurrence';
 import type { ForecastView, PlannedItem, Snapshot, Wallet } from './types';
@@ -158,6 +158,8 @@ export interface SafeToSpend {
   perDay: Francs;
   /** Reste après toutes les sorties prévues avant la prochaine paie (négatif = il manque de l'argent). */
   afterBills: Francs;
+  /** Part des dettes mise de côté d'ici la paie (dettes sans date, sans compte, ou dues plus tard). */
+  debtReserve: Francs;
   /** Jours couverts (aujourd'hui inclus) jusqu'à la veille de la prochaine paie, ou fin de l'horizon. */
   days: number;
   until: CivilDate;
@@ -172,5 +174,9 @@ export function safeToSpend(snap: Snapshot, fallbackEnd?: CivilDate): SafeToSpen
   const m = marginUntilNextIncome(snap);
   const until = m.nextIncome ? addDays(m.nextIncome.date, -1) : fallbackEnd ?? addDays(snap.today, 29);
   const days = Math.max(1, Math.round((Date.parse(until) - Date.parse(snap.today)) / 86_400_000) + 1);
-  return { perDay: Math.max(0, Math.floor(m.amount / days)), afterBills: m.amount, days, until, nextIncome: m.nextIncome };
+  // Dettes déjà dans la prévision avant la paie (datées, avec un compte) : déjà retirées de la marge.
+  const debtReserve = debtShares(snap.debts ?? [], snap.today, until, (d) => !!(d.dueDate && d.walletId && d.dueDate <= until))
+    .reduce((s, d) => s + d.thisMonth, 0);
+  const afterBills = m.amount - debtReserve;
+  return { perDay: Math.max(0, Math.floor(afterBills / days)), afterBills, debtReserve, days, until, nextIncome: m.nextIncome };
 }
