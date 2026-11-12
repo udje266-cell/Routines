@@ -6,7 +6,7 @@
 // Lancer : npm run test:integration  (après `npx supabase start`)
 import { createClient } from '@supabase/supabase-js';
 
-import { categoryStatus, currentCycle, goalSchedule, incomeStats, progressOf, remainingOf, simulatePurchase } from '@/domain';
+import { categoryStatus, currentCycle, forecast, goalSchedule, incomeStats, progressOf, remainingOf, simulatePurchase } from '@/domain';
 
 import { RefusedError } from '../repository';
 
@@ -115,5 +115,29 @@ run('Parcours 1 — portefeuille, loyer, achat testé (Supabase local)', () => {
     expect((await repo.loadSnapshot(today)).wallets[0].balance).toBe(40_000);
     await repo.deleteOperation(op.id);
     expect((await repo.loadSnapshot(today)).wallets[0].balance).toBe(50_000);
+  });
+
+  it('dépenses mensuelles : prévision, règlement unique, exception et modification des suivantes', async () => {
+    const repo = new SupabaseRepository(await newUser());
+    const today = '2026-11-12';
+    await repo.addWallet({ name: 'Wave', kind: 'wave', everyday: true, openingBalance: 100_000 });
+    const wave = (await repo.loadSnapshot(today)).wallets[0];
+    await repo.addRecurring({ label: 'Loyer', kind: 'sortie', amount: 25_000, day: 31, start: '2026-11-01', walletId: wave.id, category: 'Logement' });
+    let snap = await repo.loadSnapshot(today);
+    const rule = snap.recurring![0];
+    expect(forecast(snap).events.map((e) => [e.date, e.item.amount])).toEqual([['2026-11-30', 25_000], ['2026-12-31', 25_000]]);
+
+    const settle = { clientKey: 'loyer-nov-cle-01', ruleId: rule.id, original: '2026-11-30', amount: 25_000, walletId: wave.id, date: today };
+    await repo.settleOccurrence(settle);
+    await repo.settleOccurrence(settle);
+    await repo.setOccurrence(rule.id, '2026-12-31', { date: '2027-01-03', amount: 27_000 });
+    snap = await repo.loadSnapshot(today);
+    expect(snap.wallets[0].balance).toBe(75_000);
+    expect(forecast(snap).events.map((e) => [e.date, e.item.amount])).toEqual([['2027-01-03', 27_000]]);
+
+    await repo.splitRecurring(rule.id, '2027-01-31', { amount: 30_000, day: 5, label: 'Loyer', walletId: wave.id });
+    snap = await repo.loadSnapshot('2027-01-04');
+    // Le loyer de décembre déplacé au 3 janvier n'est pas payé : il reste à couvrir aujourd'hui, puis la nouvelle règle.
+    expect(forecast(snap).events.map((e) => [e.date, e.item.amount])).toEqual([['2027-01-04', 27_000], ['2027-02-05', 30_000]]);
   });
 });

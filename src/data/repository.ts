@@ -1,4 +1,4 @@
-import type { CategoryCap, Certainty, CivilDate, CycleSettings, DebtDirection, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
+import type { CategoryCap, Certainty, CivilDate, CycleSettings, OccurrenceOverride, DebtDirection, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
 
 export interface NewWallet {
   name: string;
@@ -103,6 +103,34 @@ export interface FinanceRepository {
   updateIntent(id: string, status: 'achete' | 'abandonne' | 'replanifie' | 'en_pause', date?: CivilDate): Promise<void>;
   updateOperation(id: string, patch: OperationPatch): Promise<void>;
   deleteOperation(id: string): Promise<void>;
+  addRecurring(r: NewRecurring): Promise<void>;
+  /** Marque une occurrence payée (ou reçue) : une seule opération par occurrence. */
+  settleOccurrence(s: SettleInput): Promise<void>;
+  /** Modifie une seule occurrence (null = retire l'exception). */
+  setOccurrence(ruleId: string, original: CivilDate, o: OccurrenceOverride | null): Promise<void>;
+  /** Modifie cette occurrence et les suivantes. */
+  splitRecurring(ruleId: string, fromOriginal: CivilDate, p: { amount: Francs; day: number; label: string; walletId: string }): Promise<void>;
+  /** Arrête la dépense mensuelle après une date (dernière occurrence incluse). */
+  stopRecurring(ruleId: string, end: CivilDate): Promise<void>;
+}
+
+export interface NewRecurring {
+  label: string;
+  kind: 'sortie' | 'rentree';
+  amount: Francs;
+  day: number;
+  start: CivilDate;
+  walletId: string;
+  category?: string;
+}
+
+export interface SettleInput {
+  clientKey: string;
+  ruleId: string;
+  original: CivilDate;
+  amount: Francs;
+  walletId: string;
+  date: CivilDate;
 }
 
 export interface OperationPatch {

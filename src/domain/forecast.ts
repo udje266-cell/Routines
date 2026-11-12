@@ -2,11 +2,17 @@ import { addDays, type CivilDate } from './dates';
 import type { Francs } from './money';
 import { debtsToPlanned } from './dettes';
 import { goalsToPlanned } from './objectifs';
+import { recurringToPlanned } from './recurrence';
 import type { ForecastView, PlannedItem, Snapshot, Wallet } from './types';
 
-/** Toutes les échéances : saisies, dettes datées et versements d'épargne prévus. */
+/** Toutes les échéances : saisies, dépenses mensuelles, dettes datées et versements d'épargne prévus. */
 export function allPlanned(snap: Snapshot): PlannedItem[] {
-  return [...snap.planned, ...debtsToPlanned(snap.debts ?? []), ...goalsToPlanned(snap.goals ?? [], snap.today)];
+  return [
+    ...snap.planned,
+    ...recurringToPlanned(snap.recurring ?? [], snap.today, addDays(snap.today, HORIZON_DAYS - 1)),
+    ...debtsToPlanned(snap.debts ?? []),
+    ...goalsToPlanned(snap.goals ?? [], snap.today),
+  ];
 }
 
 export const HORIZON_DAYS = 60;

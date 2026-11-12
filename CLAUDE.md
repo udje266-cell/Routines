@@ -27,6 +27,10 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Cycle : `currentCycle(snapshot)` (mensuel à jour choisi ou dates libres) ; ne jamais coder le mois civil en dur dans les écrans.
 - Les opérations ne s'écrivent que par les fonctions serveur (insert/update/delete directs révoqués) : `record_operation`, `update_operation`, `delete_operation`, `record_debt_payment`, `cancel_debt_payment`, `record_goal_movement`. Statut de dette « ouverte »/« reglee » recalculé par déclencheur.
 - Un achat abandonné reste une intention `abandonne` : jamais d'épargne automatique.
+- Dépenses mensuelles (`recurring_rules`) : occurrences calculées par `recurringToPlanned` (31 jours en arrière pour garder visible une occurrence échue non payée). Une occurrence se règle une seule fois (`settle_occurrence`, unique `(recurring_rule_id, recurring_original)`). « Ce mois-ci » = `recurring_overrides` ; « les suivantes » = `split_recurring_rule`.
+
+## Identité visuelle
+Couleurs tirées de l'icône et du logo (`C` dans `src/components/ui.tsx`) : marine `#1E183B` (boutons principaux, en-têtes, barre d'onglets, carte `Hero`), lavande `#D9D1FB` (boutons secondaires, bordures), menthe `#8EE3C8` (repère, indicateur d'onglet, progression ; `#12704F` pour du texte sur fond clair). Rouge et ambre réservés aux alertes, toujours avec icône et libellé.
 
 ## Commandes (vérifiées)
 ```

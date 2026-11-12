@@ -1,10 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { addDays, type CategoryCap, type CivilDate, type CycleSettings, type Debt, type IntentRecord, type Operation, type PlannedItem, type SavingsGoal, type Wallet } from '@/domain';
+import {
+  addDays, type CategoryCap, type CivilDate, type CycleSettings, type Debt, type IntentRecord, type OccurrenceOverride, type Operation,
+  type PlannedItem, type RecurringRule, type SavingsGoal, type Wallet,
+} from '@/domain';
 
 import {
   ConnectionRequiredError, RefusedError, type DebtPaymentInput, type FinanceRepository, type GoalMovementInput, type NewDebt,
-  type NewGoal, type NewIntent, type OperationPatch, type NewOperation, type NewPlanned, type NewWallet,
+  type NewGoal, type NewIntent, type NewOperation, type NewPlanned, type NewRecurring, type NewWallet, type OperationPatch, type SettleInput,
 } from './repository';
 
 // Lignes brutes de PostgREST, converties explicitement vers les types du domaine.
@@ -37,7 +40,7 @@ export class SupabaseRepository implements FinanceRepository {
 
   async loadSnapshot(today: CivilDate) {
     const from = addDays(today, -120);
-    const [wallets, balances, planned, ops, debts, goals, settings, caps, intents] = await Promise.all([
+    const [wallets, balances, planned, ops, debts, goals, settings, caps, intents, rules] = await Promise.all([
       run(this.db.from('wallets').select('id,name,kind,everyday').order('created_at')),
       run(this.db.from('wallet_balances').select('wallet_id,balance')),
       run(this.db.from('planned_items').select('*').eq('status', 'prevue').order('due_date')),
@@ -48,12 +51,14 @@ export class SupabaseRepository implements FinanceRepository {
       run(this.db.from('user_settings').select('*').maybeSingle()),
       run(this.db.from('category_caps').select('category,cap,pleasure').order('category')),
       run(this.db.from('purchase_intents').select('*').gte('created_on', from).order('created_at', { ascending: false })),
+      run(this.db.from('recurring_rules').select('*, recurring_overrides(*)').order('day')),
     ]);
     const st = settings as Row | null;
     const operations = (ops as Row[]).map((o): Operation => ({
       id: o.id, kind: o.kind, walletId: o.wallet_id, toWalletId: o.to_wallet_id ?? undefined, amount: Number(o.amount),
       fee: Number(o.fee), date: o.op_date, label: o.label, category: o.category ?? undefined,
       incomeType: o.income_type ?? undefined, debtId: o.debt_id ?? undefined, goalId: o.goal_id ?? undefined,
+      recurring: o.recurring_rule_id ? { ruleId: o.recurring_rule_id, original: o.recurring_original } : undefined,
     }));
     const bal = new Map((balances as { wallet_id: string; balance: number }[]).map((b) => [b.wallet_id, Number(b.balance)]));
     return {
@@ -71,6 +76,14 @@ export class SupabaseRepository implements FinanceRepository {
         startDay: st?.cycle_start_day ?? 1, freeStart: st?.free_start ?? undefined, freeNextStart: st?.free_next_start ?? undefined,
       } satisfies CycleSettings,
       categories: (caps as Row[]).map((c): CategoryCap => ({ category: c.category, cap: Number(c.cap), pleasure: c.pleasure })),
+      recurring: (rules as Row[]).map((r): RecurringRule => ({
+        id: r.id, label: r.label, kind: r.kind, amount: Number(r.amount), day: r.day, start: r.start_date, end: r.end_date ?? undefined,
+        walletId: r.wallet_id, category: r.category ?? undefined,
+        overrides: Object.fromEntries((r.recurring_overrides as Row[]).map((o) => [o.original_date, {
+          date: o.new_date ?? undefined, amount: o.new_amount ? Number(o.new_amount) : undefined, skip: o.skip,
+        }])),
+        settled: operations.filter((o) => o.recurring?.ruleId === r.id).map((o) => o.recurring!.original),
+      })),
       intents: (intents as Row[]).map((i): IntentRecord => ({
         id: i.id, amount: Number(i.amount), category: i.category, walletId: i.wallet_id, date: i.planned_date, status: i.status, createdOn: i.created_on,
       })),
@@ -183,5 +196,37 @@ export class SupabaseRepository implements FinanceRepository {
 
   async deleteOperation(id: string) {
     await run(this.db.rpc('delete_operation', { p_id: id }));
+  }
+
+  async addRecurring(r: NewRecurring) {
+    await run(this.db.from('recurring_rules').insert({
+      label: r.label, kind: r.kind, amount: r.amount, day: r.day, start_date: r.start, wallet_id: r.walletId, category: r.category ?? null,
+    }));
+  }
+
+  async settleOccurrence(x: SettleInput) {
+    await run(this.db.rpc('settle_occurrence', {
+      p_client_key: x.clientKey, p_rule_id: x.ruleId, p_original: x.original, p_amount: x.amount, p_wallet_id: x.walletId, p_op_date: x.date,
+    }));
+  }
+
+  async setOccurrence(ruleId: string, original: string, o: OccurrenceOverride | null) {
+    if (!o) {
+      await run(this.db.from('recurring_overrides').delete().eq('rule_id', ruleId).eq('original_date', original));
+      return;
+    }
+    await run(this.db.from('recurring_overrides').upsert({
+      rule_id: ruleId, original_date: original, new_date: o.date ?? null, new_amount: o.amount ?? null, skip: o.skip ?? false,
+    }, { onConflict: 'rule_id,original_date' }));
+  }
+
+  async splitRecurring(ruleId: string, fromOriginal: string, p: { amount: number; day: number; label: string; walletId: string }) {
+    await run(this.db.rpc('split_recurring_rule', {
+      p_rule_id: ruleId, p_from_original: fromOriginal, p_amount: p.amount, p_day: p.day, p_label: p.label, p_wallet_id: p.walletId,
+    }));
+  }
+
+  async stopRecurring(ruleId: string, end: string) {
+    await run(this.db.from('recurring_rules').update({ end_date: end }).eq('id', ruleId));
   }
 }

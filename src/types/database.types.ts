@@ -111,14 +111,14 @@ isOneToOne: false
                   ]
                 },"operations": {
                   Row: {
-                    "amount": number,"category": string | null,"client_key": string,"created_at": string,"debt_id": string | null,"fee": number,"goal_id": string | null,"id": string,"income_type": Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"op_date": string,"planned_item_id": string | null,"to_wallet_id": string | null,"user_id": string,"wallet_id": string
+                    "amount": number,"category": string | null,"client_key": string,"created_at": string,"debt_id": string | null,"fee": number,"goal_id": string | null,"id": string,"income_type": Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"op_date": string,"planned_item_id": string | null,"recurring_original": string | null,"recurring_rule_id": string | null,"to_wallet_id": string | null,"user_id": string,"wallet_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"category"?: string | null,"client_key": string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date": string,"planned_item_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id": string
+                    "amount": number,"category"?: string | null,"client_key": string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind": Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date": string,"planned_item_id"?: string | null,"recurring_original"?: string | null,"recurring_rule_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id": string
                   }
                   Update: {
-                    "amount"?: number,"category"?: string | null,"client_key"?: string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind"?: Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date"?: string,"planned_item_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id"?: string
+                    "amount"?: number,"category"?: string | null,"client_key"?: string,"created_at"?: string,"debt_id"?: string | null,"fee"?: number,"goal_id"?: string | null,"id"?: string,"income_type"?: Database["public"]['Enums']["income_type"] | null,"kind"?: Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date"?: string,"planned_item_id"?: string | null,"recurring_original"?: string | null,"recurring_rule_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id"?: string
                   }
                   Relationships: [
                     {
@@ -138,6 +138,12 @@ isOneToOne: false
       columns: ["user_id","planned_item_id"]
 isOneToOne: false
       referencedRelation: "planned_items"
+      referencedColumns: ["user_id","id"]
+    },{
+      foreignKeyName: "operations_user_id_recurring_rule_id_fkey"
+      columns: ["user_id","recurring_rule_id"]
+isOneToOne: false
+      referencedRelation: "recurring_rules"
       referencedColumns: ["user_id","id"]
     },{
       foreignKeyName: "operations_user_id_to_wallet_id_fkey"
@@ -229,6 +235,52 @@ isOneToOne: false
       referencedColumns: ["user_id","id"]
     }
                   ]
+                },"recurring_overrides": {
+                  Row: {
+                    "new_amount": number | null,"new_date": string | null,"original_date": string,"rule_id": string,"skip": boolean,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "new_amount"?: number | null,"new_date"?: string | null,"original_date": string,"rule_id": string,"skip"?: boolean,"user_id"?: string
+                  }
+                  Update: {
+                    "new_amount"?: number | null,"new_date"?: string | null,"original_date"?: string,"rule_id"?: string,"skip"?: boolean,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "recurring_overrides_user_id_rule_id_fkey"
+      columns: ["user_id","rule_id"]
+isOneToOne: false
+      referencedRelation: "recurring_rules"
+      referencedColumns: ["user_id","id"]
+    }
+                  ]
+                },"recurring_rules": {
+                  Row: {
+                    "amount": number,"category": string | null,"created_at": string,"day": number,"end_date": string | null,"id": string,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"start_date": string,"user_id": string,"wallet_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"category"?: string | null,"created_at"?: string,"day": number,"end_date"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"start_date": string,"user_id"?: string,"wallet_id": string
+                  }
+                  Update: {
+                    "amount"?: number,"category"?: string | null,"created_at"?: string,"day"?: number,"end_date"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["planned_kind"],"label"?: string,"start_date"?: string,"user_id"?: string,"wallet_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "recurring_rules_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallet_balances"
+      referencedColumns: ["user_id","wallet_id"]
+    },{
+      foreignKeyName: "recurring_rules_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallets"
+      referencedColumns: ["user_id","id"]
+    }
+                  ]
                 },"user_settings": {
                   Row: {
                     "cycle_start_day": number,"free_next_start": string | null,"free_start": string | null,"small_threshold": number,"user_id": string
@@ -298,6 +350,8 @@ isOneToOne: false
 "label": string,
 "op_date": string,
 "planned_item_id": string | null,
+"recurring_original": string | null,
+"recurring_rule_id": string | null,
 "to_wallet_id": string | null,
 "user_id": string,
 "wallet_id": string
@@ -323,6 +377,8 @@ isOneToOne: false
 "label": string,
 "op_date": string,
 "planned_item_id": string | null,
+"recurring_original": string | null,
+"recurring_rule_id": string | null,
 "to_wallet_id": string | null,
 "user_id": string,
 "wallet_id": string
@@ -348,6 +404,8 @@ isOneToOne: false
 "label": string,
 "op_date": string,
 "planned_item_id": string | null,
+"recurring_original": string | null,
+"recurring_rule_id": string | null,
 "to_wallet_id": string | null,
 "user_id": string,
 "wallet_id": string
@@ -361,6 +419,53 @@ isOneToOne: false
 "refresh_debt_status":
 { Args: { "p_debt_id": string }; Returns: undefined
                            },
+"settle_occurrence":
+{ Args: { "p_amount": number,"p_client_key": string,"p_op_date": string,"p_original": string,"p_rule_id": string,"p_wallet_id": string }; Returns: {
+              "amount": number,
+"category": string | null,
+"client_key": string,
+"created_at": string,
+"debt_id": string | null,
+"fee": number,
+"goal_id": string | null,
+"id": string,
+"income_type": Database["public"]['Enums']["income_type"] | null,
+"kind": Database["public"]['Enums']["planned_kind"],
+"label": string,
+"op_date": string,
+"planned_item_id": string | null,
+"recurring_original": string | null,
+"recurring_rule_id": string | null,
+"to_wallet_id": string | null,
+"user_id": string,
+"wallet_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "operations"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"split_recurring_rule":
+{ Args: { "p_amount": number,"p_day": number,"p_from_original": string,"p_label": string,"p_rule_id": string,"p_wallet_id": string }; Returns: {
+              "amount": number,
+"category": string | null,
+"created_at": string,
+"day": number,
+"end_date": string | null,
+"id": string,
+"kind": Database["public"]['Enums']["planned_kind"],
+"label": string,
+"start_date": string,
+"user_id": string,
+"wallet_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "recurring_rules"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "update_operation":
 { Args: { "p_amount": number,"p_category": string,"p_id": string,"p_label": string,"p_op_date": string,"p_wallet_id": string }; Returns: {
               "amount": number,
@@ -376,6 +481,8 @@ isOneToOne: false
 "label": string,
 "op_date": string,
 "planned_item_id": string | null,
+"recurring_original": string | null,
+"recurring_rule_id": string | null,
 "to_wallet_id": string | null,
 "user_id": string,
 "wallet_id": string

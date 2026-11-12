@@ -1,11 +1,11 @@
 import {
   addDays, checkPayment, progressOf, statusAfterPayments,
-  type CategoryCap, type CivilDate, type CycleSettings, type IntentRecord, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet,
+  type CategoryCap, type CivilDate, type CycleSettings, type IntentRecord, type OccurrenceOverride, type RecurringRule, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet,
 } from '@/domain';
 
 import {
   RefusedError, type DebtPaymentInput, type FinanceRepository, type GoalMovementInput, type NewDebt, type NewGoal,
-  type NewIntent, type NewOperation, type OperationPatch, type NewPlanned, type NewWallet,
+  type NewIntent, type NewOperation, type NewRecurring, type OperationPatch, type SettleInput, type NewPlanned, type NewWallet,
 } from './repository';
 
 /**
@@ -25,6 +25,7 @@ export class DemoRepository implements FinanceRepository {
   private cycle: CycleSettings = { startDay: 1 };
   private caps: CategoryCap[] = [];
   private today: CivilDate;
+  private rules: RecurringRule[] = [];
   private seq = 0;
 
   constructor(today: CivilDate, seed = true) {
@@ -42,7 +43,6 @@ export class DemoRepository implements FinanceRepository {
       { id: 'demo-ep', name: 'Épargne', kind: 'epargne', everyday: false, balance: 15_000 },
     ];
     this.planned = [
-      { id: 'demo-loyer', kind: 'sortie', label: 'Loyer', amount: 25_000, date: addDays(today, 1), walletId: 'demo-wave', category: 'Logement', source: 'facture' },
       { id: 'demo-sal', kind: 'rentree', label: 'Salaire', amount: 120_000, date: addDays(today, 18), walletId: 'demo-wave', certainty: 'attendue', source: 'revenu' },
     ];
     // Historique fictif du mois : salaire + nombreuses petites sommes reçues et dépensées.
@@ -55,6 +55,17 @@ export class DemoRepository implements FinanceRepository {
     [3_000, 1_500, 12_000, 2_000, 6_500, 4_000, 15_000, 2_500, 8_000, 3_500, 25_000, 1_000].forEach((a, i) =>
       this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: a, date: day(i), label: cats[i % 6], category: cats[i % 6] }));
     this.intents.push({ id: this.id(), amount: 18_000, category: 'Habillement', walletId: 'demo-wave', date: addDays(today, 1), status: 'en_pause', createdOn: today });
+    // Dépenses obligatoires de chaque mois (montants fictifs, ordres de grandeur d'Abidjan).
+    const rule = (id: string, label: string, amount: number, day: number, category: string): RecurringRule => ({
+      id, label, kind: 'sortie', amount, day, start: today, walletId: 'demo-wave', category, overrides: {}, settled: [],
+    });
+    this.rules = [
+      rule('demo-loyer', 'Loyer', 25_000, Number(addDays(today, 1).slice(8)), 'Logement'),
+      rule('demo-cie', 'Électricité (CIE)', 12_000, 20, 'Logement'),
+      rule('demo-sodeci', 'Eau (SODECI)', 6_000, 20, 'Logement'),
+      rule('demo-internet', 'Internet', 15_000, 5, 'Logement'),
+      rule('demo-tontine', 'Tontine', 10_000, 28, 'Famille'),
+    ];
     this.debts = [
       { id: 'demo-dette', direction: 'je_dois', person: 'Koffi', initial: 20_000, dueDate: addDays(today, 10), walletId: 'demo-wave', status: 'ouverte', payments: [] },
       { id: 'demo-creance', direction: 'on_me_doit', person: 'Awa', initial: 15_000, status: 'ouverte', certainty: 'incertaine', payments: [] },
@@ -103,6 +114,7 @@ export class DemoRepository implements FinanceRepository {
       categories: this.caps.map((c) => ({ ...c })),
       intents: this.intents.map((i) => ({ ...i })),
       cycle: { ...this.cycle },
+      recurring: this.rules.map((r) => ({ ...r, overrides: { ...r.overrides }, settled: [...r.settled] })),
     };
   }
 
@@ -229,6 +241,46 @@ export class DemoRepository implements FinanceRepository {
       if (left < 0) throw new RefusedError('Suppression impossible : l’épargne deviendrait négative.');
       g.movements = g.movements.filter((m) => m.id !== id);
     }
+    if (o.recurring) {
+      const r = this.rules.find((y) => y.id === o.recurring!.ruleId);
+      if (r) r.settled = r.settled.filter((d) => d !== o.recurring!.original);
+    }
     this.unapply(id);
+  }
+
+  async addRecurring(r: NewRecurring) {
+    this.rules.push({ ...r, id: this.id(), overrides: {}, settled: [] });
+  }
+
+  async settleOccurrence(x: SettleInput) {
+    if (this.seen(x.clientKey)) return;
+    const r = this.rules.find((y) => y.id === x.ruleId);
+    if (!r) throw new RefusedError('Dépense mensuelle introuvable');
+    if (r.settled.includes(x.original)) throw new RefusedError('Cette échéance est déjà réglée.');
+    this.apply({
+      id: `op-${x.clientKey}`, kind: r.kind, walletId: x.walletId, amount: x.amount, date: x.date, label: r.label, category: r.category,
+      incomeType: r.kind === 'rentree' ? 'principal' : undefined, recurring: { ruleId: r.id, original: x.original },
+    });
+    r.settled.push(x.original);
+  }
+
+  async setOccurrence(ruleId: string, original: CivilDate, o: OccurrenceOverride | null) {
+    const r = this.rules.find((y) => y.id === ruleId);
+    if (!r) return;
+    if (o) r.overrides[original] = o;
+    else delete r.overrides[original];
+  }
+
+  async splitRecurring(ruleId: string, fromOriginal: CivilDate, p: { amount: number; day: number; label: string; walletId: string }) {
+    const r = this.rules.find((y) => y.id === ruleId);
+    if (!r) return;
+    if (fromOriginal <= r.start) return void Object.assign(r, p);
+    this.rules.push({ ...r, ...p, id: this.id(), start: fromOriginal, overrides: {}, settled: [] });
+    r.end = addDays(fromOriginal, -1);
+  }
+
+  async stopRecurring(ruleId: string, end: CivilDate) {
+    const r = this.rules.find((y) => y.id === ruleId);
+    if (r) r.end = end;
   }
 }

@@ -10,7 +10,11 @@ export default function TabsLayout() {
   const home = require('@/assets/images/tabIcons/home.png');
   const explore = require('@/assets/images/tabIcons/explore.png');
   return (
-    <NativeTabs backgroundColor={C.carte} indicatorColor={C.mentheClair} labelStyle={{ selected: { color: C.texte } }}>
+    <NativeTabs
+      backgroundColor={C.marine}
+      indicatorColor={C.menthe}
+      labelStyle={{ default: { color: C.lavande }, selected: { color: C.marine } }}
+      iconColor={{ default: C.lavande, selected: C.marine }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Aujourd’hui</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={home} renderingMode="template" />

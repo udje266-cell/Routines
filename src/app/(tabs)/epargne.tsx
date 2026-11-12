@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, C, Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, C, Card, Choice, Field, Hero, HeroText, Label, Screen, Status, Title } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
@@ -34,9 +34,10 @@ export default function Epargne() {
   return (
     <Screen>
       <Title>Épargne</Title>
-      <Card tone="ok">
-        <Label muted>Épargne réellement mise de côté</Label>
-        <Title>{formatFcfa(saved)}</Title>
+      <Hero label="Épargne réellement mise de côté" value={formatFcfa(saved)}>
+        <HeroText strong>Recommandé : {formatFcfa(a.recommended)} / mois</HeroText>
+      </Hero>
+      <Card>
         <Label>Recommandé : {formatFcfa(a.recommended)} / mois (minimum {formatFcfa(a.minimum)})</Label>
         <Label muted>
           Calculé sur vos revenus des 3 derniers mois ({formatFcfa(st.mainMonthly)} de revenu principal + {formatFcfa(st.smallMonthly)} de petites sommes par mois)

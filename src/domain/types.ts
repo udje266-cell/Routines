@@ -3,6 +3,7 @@ import type { CategoryCap, CycleSettings, IntentRecord } from './cycle';
 import type { Debt } from './dettes';
 import type { Francs } from './money';
 import type { SavingsGoal } from './objectifs';
+import type { RecurringRule } from './recurrence';
 import type { Operation } from './revenus';
 
 export type WalletKind = 'especes' | 'wave' | 'orange_money' | 'banque' | 'epargne';
@@ -39,6 +40,8 @@ export interface PlannedItem {
   category?: string;
   /** Origine métier, pour l'affichage (loyer, dette, épargne…). */
   source?: 'facture' | 'dette' | 'epargne' | 'revenu' | 'achat';
+  /** Occurrence d'une dépense mensuelle (pour la marquer payée ou la modifier). */
+  recurring?: { ruleId: string; original: CivilDate };
 }
 
 export type ForecastView = 'standard' | 'prudente';
@@ -68,4 +71,5 @@ export interface Snapshot {
   categories?: CategoryCap[];
   intents?: IntentRecord[];
   cycle?: CycleSettings;
+  recurring?: RecurringRule[];
 }

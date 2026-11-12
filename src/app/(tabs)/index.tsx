@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 
-import { Button, Card, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, Card, Hero, HeroText, Label, Screen, Status, Title } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
@@ -74,13 +74,11 @@ export default function Aujourdhui() {
             </Card>
           ) : null}
 
-          <Card tone={margin.amount < 0 ? 'risque' : 'ok'}>
-            <Label muted>Marge {margin.nextIncome ? `jusqu’au ${formatDateFr(margin.nextIncome.date)}` : 'sur 60 jours'}</Label>
-            <Title>{formatFcfa(margin.amount)}</Title>
-            {margin.amount < 0 ? <Status tone="risque">Vos échéances dépassent le disponible.</Status> : null}
-            {margin.missingIncomeDate ? <Status tone="attention">Aucune rentrée datée : ajoutez la date de votre prochain revenu.</Status> : null}
-            <Label muted>Disponible aujourd’hui : {formatFcfa(total)}</Label>
-          </Card>
+          <Hero label={`Marge ${margin.nextIncome ? `jusqu’au ${formatDateFr(margin.nextIncome.date)}` : 'sur 60 jours'}`} value={formatFcfa(margin.amount)}>
+            <HeroText>Disponible aujourd’hui : {formatFcfa(total)}</HeroText>
+          </Hero>
+          {margin.amount < 0 ? <Card tone="risque"><Status tone="risque">Vos échéances dépassent le disponible de {formatFcfa(-margin.amount)}.</Status></Card> : null}
+          {margin.missingIncomeDate ? <Card tone="attention"><Status tone="attention">Aucune rentrée datée : ajoutez la date de votre prochain revenu.</Status></Card> : null}
 
           {pace && pace.status !== 'dans_le_plan' ? (
             <Card tone={pace.status === 'derapage' ? 'risque' : 'attention'}>
@@ -108,7 +106,10 @@ export default function Aujourdhui() {
             <View style={{ flex: 1 }}><Button variant="secondaire" label="Mon budget" onPress={() => router.push('/mon-budget')} /></View>
             <View style={{ flex: 1 }}><Button variant="secondaire" label="Historique" onPress={() => router.push('/historique')} /></View>
           </View>
-          <Button variant="secondaire" label="Bilan du cycle" onPress={() => router.push('/bilan')} />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><Button variant="secondaire" label="Dépenses du mois" onPress={() => router.push('/depenses-mensuelles')} /></View>
+            <View style={{ flex: 1 }}><Button variant="secondaire" label="Bilan du cycle" onPress={() => router.push('/bilan')} /></View>
+          </View>
 
           {paused.length ? (
             <Card>
@@ -143,10 +144,22 @@ export default function Aujourdhui() {
             <Label muted>Prochaines échéances</Label>
             {upcoming.length === 0 ? <Label>Aucune échéance prévue.</Label> : null}
             {upcoming.map((e) => (
-              <Label key={e.item.id}>
-                {formatDateFr(e.date)} · {e.item.label} · {e.item.kind === 'rentree' ? '+' : '−'}{formatFcfa(e.item.amount)}
-                {e.overdue ? ' · ⚠ en retard, à couvrir aujourd’hui' : ''}
-              </Label>
+              <View key={e.item.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Label>
+                    {formatDateFr(e.date)} · {e.item.label} · {e.item.kind === 'rentree' ? '+' : '−'}{formatFcfa(e.item.amount)}
+                    {e.overdue ? ' · ⚠ en retard, à couvrir aujourd’hui' : ''}
+                  </Label>
+                </View>
+                {e.item.recurring ? (
+                  <Button variant="secondaire" label={e.item.kind === 'rentree' ? 'Reçu' : 'Payé'} disabled={intent.busy}
+                    hint={`${e.item.label} du ${formatDateFr(e.date)}`}
+                    onPress={() => intent.run((r, clientKey) => r.settleOccurrence({
+                      clientKey, ruleId: e.item.recurring!.ruleId, original: e.item.recurring!.original, amount: e.item.amount,
+                      walletId: e.item.walletId, date: e.date < snapshot.today ? e.date : snapshot.today,
+                    }))} />
+                ) : null}
+              </View>
             ))}
           </Card>
         </>

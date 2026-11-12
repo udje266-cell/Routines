@@ -17,6 +17,8 @@ export interface Operation {
   incomeType?: 'principal' | 'petite';
   debtId?: string;
   goalId?: string;
+  /** Règlement d'une occurrence de dépense mensuelle. */
+  recurring?: { ruleId: string; original: CivilDate };
 }
 
 export interface IncomeStats {

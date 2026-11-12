@@ -3,21 +3,27 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, typ
 
 import { useFinance } from '@/data/finance-context';
 
-/** Palette : repère vert menthe de Mes Finances. */
+/**
+ * Palette tirée de l'icône et du logo Mes Finances :
+ * marine (fond de l'icône, texte du logo), lavande (calendrier-portefeuille), menthe (repère du logo).
+ * Rouge et ambre restent réservés aux alertes ; chaque statut a aussi une icône et un libellé.
+ */
 export const C = {
-  // Bouton : menthe foncée pour garder un contraste suffisant avec le texte blanc.
-  menthe: '#1F8A68',
-  mentheLogo: '#8EE3C8',
-  mentheClair: '#E4F7F0',
   marine: '#1E183B',
+  marineDoux: '#2E2757',
   lavande: '#D9D1FB',
+  lavandeClair: '#EFEBFE',
+  menthe: '#8EE3C8',
+  mentheClair: '#E4F8F1',
+  /** Menthe foncée pour du texte sur fond clair (contraste ≥ 4,5:1). */
+  mentheTexte: '#12704F',
   texte: '#1E183B',
   secondaire: '#5B5675',
-  fond: '#F7F6FC',
+  fond: '#F7F5FE',
   carte: '#FFFFFF',
-  bord: '#DCD8EC',
-  risque: '#B3261E',
-  risqueClair: '#FBE9E7',
+  bord: '#E0DAF7',
+  risque: '#B42318',
+  risqueClair: '#FDECEA',
   attention: '#8A5A00',
   attentionClair: '#FFF4D6',
 };
@@ -39,6 +45,24 @@ export function Label({ children, muted }: { children: ReactNode; muted?: boolea
   return <Text style={[s.label, muted && { color: C.secondaire }]}>{children}</Text>;
 }
 
+export function Hero({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
+  return (
+    <View style={[s.card, { backgroundColor: C.marine, borderColor: C.marine }]}>
+      <Text style={{ color: C.lavande, fontSize: 16 }}>{label}</Text>
+      <Text style={{ color: '#fff', fontSize: 32, fontWeight: '700' }}>{value}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: C.menthe }} importantForAccessibility="no" />
+        <View style={{ flex: 1, gap: 4 }}>{children}</View>
+      </View>
+    </View>
+  );
+}
+
+/** Texte clair à placer dans un Hero. */
+export function HeroText({ children, strong }: { children: ReactNode; strong?: boolean }) {
+  return <Text style={{ color: strong ? C.menthe : C.lavande, fontSize: 16, fontWeight: strong ? '700' : '400' }}>{children}</Text>;
+}
+
 export function Card({ children, tone }: { children: ReactNode; tone?: 'ok' | 'risque' | 'attention' }) {
   const bg = tone === 'risque' ? C.risqueClair : tone === 'attention' ? C.attentionClair : tone === 'ok' ? C.mentheClair : C.carte;
   return <View style={[s.card, { backgroundColor: bg }]}>{children}</View>;
@@ -47,7 +71,7 @@ export function Card({ children, tone }: { children: ReactNode; tone?: 'ok' | 'r
 /** Statut lisible par icône ET libellé (pas seulement par la couleur). */
 export function Status({ tone, children }: { tone: 'ok' | 'risque' | 'attention'; children: ReactNode }) {
   const icon = tone === 'ok' ? '✓' : tone === 'risque' ? '⚠' : 'ⓘ';
-  const color = tone === 'ok' ? C.menthe : tone === 'risque' ? C.risque : C.attention;
+  const color = tone === 'ok' ? C.mentheTexte : tone === 'risque' ? C.risque : C.attention;
   return (
     <Text style={[s.status, { color }]} accessibilityRole="text">
       <Text importantForAccessibility="no">{icon} </Text>
@@ -95,7 +119,7 @@ export function Choice<T extends string>({ label, options, value, onChange }: {
           const on = o.value === value;
           return (
             <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="radio" accessibilityState={{ checked: on }}
-              accessibilityLabel={o.label} style={[s.chip, on && { backgroundColor: C.menthe, borderColor: C.menthe }]}>
+              accessibilityLabel={o.label} style={[s.chip, on && { backgroundColor: C.marine, borderColor: C.marine }]}>
               <Text style={{ color: on ? '#fff' : C.texte, fontSize: 15 }}>{on ? '● ' : '○ '}{o.label}</Text>
             </Pressable>
           );
@@ -125,10 +149,10 @@ const s = StyleSheet.create({
   card: { borderRadius: 14, padding: 16, gap: 8, borderWidth: 1, borderColor: C.bord },
   status: { fontSize: 17, fontWeight: '600' },
   btn: { minHeight: 48, borderRadius: 12, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  btnP: { backgroundColor: C.menthe },
-  btnS: { backgroundColor: C.carte, borderWidth: 1, borderColor: C.bord },
+  btnP: { backgroundColor: C.marine },
+  btnS: { backgroundColor: C.lavandeClair, borderWidth: 1, borderColor: C.lavande },
   btnText: { fontSize: 16, fontWeight: '600' },
   fieldLabel: { fontSize: 15, color: C.secondaire },
   input: { minHeight: 48, borderWidth: 1, borderColor: C.bord, borderRadius: 10, paddingHorizontal: 12, fontSize: 17, color: C.texte, backgroundColor: '#fff' },
-  chip: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: C.bord, backgroundColor: '#fff' },
+  chip: { minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: C.lavande, backgroundColor: '#fff' },
 });
