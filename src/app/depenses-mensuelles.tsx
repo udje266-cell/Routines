@@ -97,7 +97,7 @@ function OccurrenceRow({ rule, occ, payable }: { rule: RecurringRule; occ: Recur
 
   async function saveOne() {
     const v = parseFcfa(amount);
-    if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return pay.setError('Montant et date (AAAA-MM-JJ) requis.');
+    if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return pay.setError('Indiquez le montant et la date.');
     if (await pay.run((r) => r.setOccurrence(rule.id, occ.original, { date, amount: v }))) setEdit(false);
   }
 

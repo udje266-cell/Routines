@@ -8,7 +8,7 @@ import { AmountField, DateField, DayOfMonthField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
-  addDays, adviseSavings, formatDateFr, formatFcfa, goalRemaining, goalSchedule, incomeStats, parseFcfa, progressOf,
+  addDays, adviseSavings, formatDateCourt, formatDateFr, formatFcfa, goalRemaining, goalSchedule, incomeStats, parseFcfa, progressOf,
   currentCycle, upcomingEssentials, type SavingsGoal, type Snapshot,
 } from '@/domain';
 
@@ -79,7 +79,7 @@ function NewGoalForm({ onDone, defaults }: { onDone: () => void; defaults: { nam
     const value = parseFcfa(target);
     const d = Number(day);
     if (!name.trim() || !value) return setError('Nom et somme cible requis.');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Date au format AAAA-MM-JJ.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Choisissez une date.');
     if (!(d >= 1 && d <= 31)) return setError('Jour de versement entre 1 et 31.');
     if (await run((repo) => repo.addGoal({ name: name.trim(), target: value, date, pocketWalletId: pocket, fromWalletId: from || undefined, plannedDay: d })))
       onDone();
@@ -146,7 +146,7 @@ function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={{ fontSize: 17, fontWeight: '700', color: C.texte }}>Prochain versement</Text>
-              <Text style={{ fontSize: 16, color: C.texte }}>{formatDateFr(next.date).replace(/ \d{4}$/, '')}</Text>
+              <Text style={{ fontSize: 16, color: C.texte }}>{formatDateCourt(next.date)}</Text>
               <Pill>{formatFcfa(next.amount)} CFA</Pill>
             </View>
           </View>

@@ -29,22 +29,29 @@ const TITLE: Record<Type, string> = {
 };
 
 export default function Ajouter() {
-  const params = useLocalSearchParams<{ type?: Type; sens?: 'sortie' | 'rentree' }>();
+  const params = useLocalSearchParams<{ type?: Type; sens?: 'sortie' | 'rentree'; date?: string }>();
   const { snapshot } = useFinance();
   const today = snapshot?.today ?? '2026-01-01';
   const wallets = snapshot?.wallets ?? [];
   const everyday = wallets.filter((w) => w.everyday);
-  const [type, setType] = useState<Type>(params.type ?? (wallets.length ? 'depense' : 'portefeuille'));
+  // Depuis le calendrier : un jour passé = opération réelle, un jour à venir = chose prévue.
+  const fromDay = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
+  const initialType: Type = (() => {
+    const t = params.type ?? (wallets.length ? 'depense' : 'portefeuille');
+    if (!fromDay || fromDay <= today) return t === 'sortie' ? 'depense' : t === 'rentree' ? 'revenu' : t;
+    return t === 'depense' ? 'sortie' : t === 'revenu' ? 'rentree' : t;
+  })();
+  const [type, setType] = useState<Type>(initialType);
   const [showMore, setShowMore] = useState(MORE.some((m) => m.value === type));
   const [name, setName] = useState('');
   const [kind, setKind] = useState<WalletKind>('wave');
   const [amount, setAmount] = useState<number | null>(null);
-  const [date, setDate] = useState(['depense', 'revenu', 'transfert'].includes(type) ? today : addDays(today, 1));
+  const [date, setDate] = useState(fromDay ?? (['depense', 'revenu', 'transfert'].includes(initialType) ? today : addDays(today, 1)));
   const [walletId, setWalletId] = useState(everyday[0]?.id ?? '');
   const [category, setCategory] = useState(type === 'mensuelle' ? 'Logement' : 'Alimentation');
   const [incomeType, setIncomeType] = useState<'principal' | 'petite'>('petite');
   const [sure, setSure] = useState<'attendue' | 'incertaine'>('attendue');
-  const [day, setDay] = useState(Math.min(28, Number(today.slice(8)) || 1));
+  const [day, setDay] = useState(Number((fromDay ?? today).slice(8)) || 1);
   const [toWalletId, setToWalletId] = useState(wallets.find((x) => x.id !== everyday[0]?.id)?.id ?? '');
   const [fee, setFee] = useState<number | null>(null);
   const [monthlyKind, setMonthlyKind] = useState<'sortie' | 'rentree'>(params.sens ?? 'sortie');

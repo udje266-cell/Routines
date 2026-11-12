@@ -6,7 +6,7 @@ import { Switch, Text, View } from 'react-native';
 import { Button, C, Label, Pill, Screen, Status } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
-import { formatDateFr, formatFcfa } from '@/domain';
+import { formatDateCourt, formatFcfa } from '@/domain';
 import { categoryLabel, CATEGORY_TILES } from '@/lib/categories';
 
 /** Un achat mis en pause : le revoir (relancer la simulation) ou y renoncer. */
@@ -31,7 +31,7 @@ export default function AchatEnPause() {
           <Text style={{ fontSize: 30, fontWeight: '800', color: C.texte }} adjustsFontSizeToFit numberOfLines={1}>{formatFcfa(intent.amount)} CFA</Text>
         </View>
       </View>
-      <View style={{ alignItems: 'center' }}><Pill>À revoir le {formatDateFr(intent.date).replace(/ \d{4}$/, '')}</Pill></View>
+      <View style={{ alignItems: 'center' }}><Pill>À revoir le {formatDateCourt(intent.date)}</Pill></View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 60, paddingHorizontal: 16,
         borderRadius: 16, borderWidth: 1, borderColor: C.bord, backgroundColor: '#fff' }}>

@@ -7,7 +7,7 @@ import { Text, View } from 'react-native';
 import { newClientKey } from '@/data/client-key';
 import { useFinance } from '@/data/finance-context';
 import { ConnectionRequiredError } from '@/data/repository';
-import { addDays, formatDateFr, formatFcfa, simulatePurchase, type SimulationResult } from '@/domain';
+import { addDays, formatDateCourt, formatDateFr, formatFcfa, simulatePurchase, type SimulationResult } from '@/domain';
 import { CATEGORY_TILES, categoryLabel, walletIcon } from '@/lib/categories';
 
 
@@ -107,7 +107,7 @@ export default function TesterAchat() {
             <Button label="Mettre en pause" disabled={busy} onPress={() => act('pause')} />
           )}
           {result.alternativeDate ? (
-            <Button variant="lien" label={`Changer la date : le ${formatDateFr(result.alternativeDate).replace(/ \d{4}$/, '')}`} disabled={busy}
+            <Button variant="lien" label={`Changer la date : le ${formatDateCourt(result.alternativeDate)}`} disabled={busy}
               onPress={() => act('reporter', result.alternativeDate!)} />
           ) : null}
           {result.verdict === 'ok' ? (
@@ -143,11 +143,11 @@ function Verdict({ r }: { r: SimulationResult }) {
         <Text style={{ fontSize: 17, color: C.texte }}>
           {sf.item.source === 'achat'
             ? 'Il manque cet argent sur ce compte pour payer l’achat.'
-            : `Manquants le ${formatDateFr(sf.date).replace(/ \d{4}$/, '')} pour payer « ${sf.item.label} ».`}
+            : `Manquants le ${formatDateCourt(sf.date)} pour payer « ${sf.item.label} ».`}
         </Text>
         {sf.preexisting > 0 ? <Text style={{ fontSize: 15, color: C.secondaire }}>Même sans cet achat, il manquait déjà {formatFcfa(sf.preexisting)} ce jour-là.</Text> : null}
         <Text style={{ fontSize: 15, color: C.secondaire }}>
-          {r.alternativeDate ? `Le bon moment : à partir du ${formatDateFr(r.alternativeDate).replace(/ \d{4}$/, '')}.` : 'Aucun bon moment dans les 2 prochains mois.'}
+          {r.alternativeDate ? `Le bon moment : à partir du ${formatDateCourt(r.alternativeDate)}.` : 'Aucun bon moment dans les 2 prochains mois.'}
         </Text>
         {extras}
       </SummaryCard>
@@ -156,7 +156,7 @@ function Verdict({ r }: { r: SimulationResult }) {
     return (
       <SummaryCard label="Possible, mais risqué" amount="Attendez un peu" tone="ambre" icon="alert-circle-outline">
         <Text style={{ fontSize: 16, color: C.texte }}>
-          Ça passe seulement si {r.dependsOn.incomes.map((i) => `« ${i.label} »`).join(', ')} arrive à temps. Sinon, il vous manquera {formatFcfa(r.dependsOn.shortfall.caused)} le {formatDateFr(r.dependsOn.shortfall.date).replace(/ \d{4}$/, '')}.
+          Ça passe seulement si {r.dependsOn.incomes.map((i) => `« ${i.label} »`).join(', ')} arrive à temps. Sinon, il vous manquera {formatFcfa(r.dependsOn.shortfall.caused)} le {formatDateCourt(r.dependsOn.shortfall.date)}.
         </Text>
         {extras}
       </SummaryCard>

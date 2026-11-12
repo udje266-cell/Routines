@@ -1,26 +1,27 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { OperationLine } from '@/components/operation-line';
+import { DayPanel, MonthCalendar, PlanCard } from '@/components/month-calendar';
 import { CycleRing } from '@/components/ring';
 import { Button, C, Card, Label, Row, Screen, Status, SummaryCard } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
-import { addDays, advise, currentCycle, cycleDay, formatDateFr, formatFcfa, forecast, safeToSpend } from '@/domain';
+import { addDays, advise, currentCycle, cycleDay, formatDateCourt, formatDateFr, formatFcfa, forecast, monthPlan, safeToSpend } from '@/domain';
 import { itemIcon } from '@/lib/categories';
 
-const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const F = (n: number) => `${formatFcfa(n).replace(/ F$/, '')} F CFA`;
 
 export default function Aujourdhui() {
   const { snapshot, status, repo } = useFinance();
   const pay = useWrite('paiement-accueil');
   const today = snapshot?.today ?? '2026-01-01';
-  const [, m, d] = today.split('-').map(Number);
+  const [selected, setSelected] = useState(today);
 
   if (!snapshot) {
     return (
-      <Screen title="Aujourd’hui" subtitle={`${d} ${MOIS[m - 1]}`}>
+      <Screen title="Aujourd’hui" subtitle={formatDateFr(today)}>
         <Label muted>{status === 'chargement' ? 'Chargement de votre budget…' : 'Budget indisponible pour le moment.'}</Label>
       </Screen>
     );
@@ -34,29 +35,35 @@ export default function Aujourdhui() {
   const paused = (snapshot.intents ?? []).filter((i) => i.status === 'en_pause');
   const total = snapshot.wallets.filter((w) => w.everyday).reduce((s, w) => s + w.balance, 0);
   const short = sts.afterBills < 0;
-  const when = (date: string) => (date === today ? 'Aujourd’hui' : date === addDays(today, 1) ? 'Demain' : formatDateFr(date).replace(/ \d{4}$/, ''));
+  const plan = monthPlan(snapshot);
+  const when = (date: string) => (date === today ? 'Aujourd’hui' : date === addDays(today, 1) ? 'Demain' : formatDateCourt(date));
 
   return (
-    <Screen title="Aujourd’hui" subtitle={`${d} ${MOIS[m - 1]}`}>
+    <Screen title="Aujourd’hui" subtitle={formatDateFr(today)}>
       {repo?.mode === 'demo' ? <Card tone="attention"><Status tone="attention">Exemple avec de faux chiffres : rien n’est enregistré.</Status></Card> : null}
 
-      <CycleRing day={day} length={length} />
+      {/* Calendrier du mois, comme Flo : toucher un jour pour voir ou planifier une entrée ou une sortie. */}
+      <MonthCalendar plan={plan} today={today} selected={selected} onSelect={setSelected} />
+      <CycleRing day={day} length={length} size={124} />
 
       {short ? (
         <SummaryCard label="Il vous manque" amount={F(-sts.afterBills)} tone="rouge" icon="warning-outline">
           <Text style={{ fontSize: 15, color: C.texte }}>
-            pour payer vos factures d’ici le {formatDateFr(sts.until).replace(/ \d{4}$/, '').replace(/\.$/, '')}. Évitez les dépenses qui peuvent attendre.
+            pour payer vos factures d’ici le {formatDateCourt(sts.until)}. Évitez les dépenses qui peuvent attendre.
           </Text>
         </SummaryCard>
       ) : (
         <SummaryCard label="Je peux dépenser aujourd’hui" amount={F(sts.perDay)}>
           <View style={{ height: 1, backgroundColor: 'rgba(30,24,59,0.12)' }} />
           <Text style={{ fontSize: 15, color: C.texte }}>
-            Factures déjà mises de côté · {sts.nextIncome ? `jusqu’à la paie du ${formatDateFr(sts.nextIncome.date).replace(/ \d{4}$/, '')}` : 'jusqu’à la fin du mois'}
+            Factures déjà mises de côté · {sts.nextIncome ? `jusqu’à la paie du ${formatDateCourt(sts.nextIncome.date)}` : 'jusqu’à la fin du mois'}
           </Text>
           <Text style={{ fontSize: 15, color: C.secondaire }}>Vous avez {F(total)} en tout.</Text>
         </SummaryCard>
       )}
+
+      <DayPanel day={selected} today={today} entries={plan.days[selected] ?? []} />
+      <PlanCard plan={plan} />
 
       {pay.error ? <Status tone="risque">{pay.error}</Status> : null}
       {bills.map((e) => {
@@ -107,7 +114,7 @@ export default function Aujourdhui() {
       ) : null}
 
       {paused.map((i) => (
-        <Row key={i.id} icon="pause-circle-outline" title={`Achat en pause · ${F(i.amount)}`} sub={`À revoir le ${formatDateFr(i.date).replace(/ \d{4}$/, '')}`}
+        <Row key={i.id} icon="pause-circle-outline" title={`Achat en pause · ${F(i.amount)}`} sub={`À revoir le ${formatDateCourt(i.date)}`}
           onPress={() => router.push({ pathname: '/achat-en-pause', params: { id: i.id } })} />
       ))}
     </Screen>

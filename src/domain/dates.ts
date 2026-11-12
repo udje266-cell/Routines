@@ -36,10 +36,16 @@ export function todayAbidjan(now: Date = new Date()): CivilDate {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Abidjan' }).format(now);
 }
 
-const MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+/** Date affichée au format JJ-MM-AAAA (ex. 05-11-2026). */
 export function formatDateFr(d: CivilDate): string {
-  const [y, m, day] = d.split('-').map(Number);
-  return `${day} ${MOIS[m - 1]} ${y}`;
+  const [y, m, day] = d.split('-');
+  return `${day}-${m}-${y}`;
+}
+
+/** Date courte JJ-MM, pour les listes du mois en cours (ex. 05-11). */
+export function formatDateCourt(d: CivilDate): string {
+  const [, m, day] = d.split('-');
+  return `${day}-${m}`;
 }
 
 export function startOfMonth(d: CivilDate): CivilDate {

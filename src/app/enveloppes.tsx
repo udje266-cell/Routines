@@ -28,7 +28,7 @@ export default function Enveloppes() {
       if (!preview) return w.setError('Jour entre 1 et 31.');
       await w.run((r) => r.saveCycle({ startDay: d }));
     } else {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || next <= snapshot!.today) return w.setError('Prochain début : une date future (AAAA-MM-JJ).');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(next) || next <= snapshot!.today) return w.setError('Choisissez une date dans le futur.');
       await w.run((r) => r.saveCycle({ startDay: snapshot!.cycle?.startDay ?? 1, freeStart: cycle.start, freeNextStart: next }));
     }
   }

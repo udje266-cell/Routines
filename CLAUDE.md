@@ -57,9 +57,10 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 
 ## Identité visuelle et ergonomie
 - Style des maquettes validées (`C` dans `src/components/ui.tsx`) : fond lavande très clair, grands titres dans l'écran (onglets sans en-tête), cartes teintées (`SummaryCard` lavande pour les montants, menthe pour le positif, ambre/rouge pour les alertes), actions en violet `#5B3FA0`, texte marine `#1E183B` (logo), menthe `#8EE3C8`/`#3FD3A0` pour la progression. Statuts toujours avec icône et libellé.
+- Dates affichées en JJ-MM-AAAA (`formatDateFr`), JJ-MM dans les listes (`formatDateCourt`).
 - Saisies uniformes (`src/components/inputs.tsx`) : montants au clavier numérique seul (`AmountField`), dates au calendrier (`DateField`), jour du mois en grille (`DayOfMonthField`), choix en ligne « icône · libellé … valeur › » ouvrant une liste (`TileChoice` avec `rowIcon`). Jamais de saisie « AAAA-MM-JJ ».
 - Langage de tous les jours, sans jargon (compte, facture du mois, argent attendu, limite de dépenses). Textes longs sur une ligne (`numberOfLines={1}` + `adjustsFontSizeToFit`).
-- Accueil : « Je peux dépenser aujourd'hui » (`safeToSpend`), anneau du jour du mois, factures proches, dernières opérations (modifiables), conseil du banquier. Outils avancés dans l'onglet « Plus ».
+- Accueil : calendrier du mois façon Flo (`src/components/month-calendar.tsx` : bande des jours, grille dépliable, points vert/rouge, jour choisi pour planifier une entrée ou une sortie), « Mon plan du mois » (`monthPlan` : entrées, sorties, ce qui reste, combien/quand/comment épargner, en tenant compte d'un manque avant la paie), « Je peux dépenser aujourd'hui » (`safeToSpend`), anneau du jour du mois, factures proches, dernières opérations (modifiables), conseil du banquier. Outils avancés dans l'onglet « Plus ».
 - Configuration guidée (`src/app/bienvenue.tsx`) au premier lancement d'un compte vide ; toute opération se modifie ou se supprime depuis `src/app/operation.tsx`.
 
 ## Commandes (vérifiées)
