@@ -51,7 +51,7 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 ## Projet Supabase en ligne
 - Projet `ldfurhmdxvevqwadgfzs` (« Mes Finances », eu-west-1), URL `https://ldfurhmdxvevqwadgfzs.supabase.co`. Migrations jusqu'à `20261118000000_credits` appliquées et inscrites dans `supabase_migrations.schema_migrations` ; tests pgTAP rejoués sur le projet (transactions annulées).
 - Auth en ligne : mot de passe 8 caractères, confirmation de l'e-mail active, codes à 6 chiffres.
-- **Bloquant avant ouverture au public** : fournisseur SMTP personnalisé à configurer, puis appliquer `supabase/templates/confirmation.html` et `recuperation.html` (le fournisseur par défaut n'envoie que des liens, 2 e-mails/heure, aux seules adresses de l'équipe).
+- E-mails : SMTP Brevo (`smtp-relay.brevo.com:587`, expéditeur « Mes Finances »), modèles `supabase/templates/confirmation.html` et `recuperation.html` appliqués (code à 6 chiffres), 30 e-mails/heure. Envoi réel vérifié. La clé SMTP ne se trouve que dans la configuration Supabase.
 - `.env.local` (ignoré par Git) contient l'URL et la clé publique ; jamais la clé secrète.
 - Ne jamais lancer `npm run test:integration` contre le projet en ligne (création de comptes et envois d'e-mails).
 
