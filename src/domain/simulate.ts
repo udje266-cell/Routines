@@ -1,6 +1,7 @@
 import { addDays, type CivilDate } from './dates';
 import { dailyMinimum, forecast, type Forecast } from './forecast';
 import type { Francs } from './money';
+import { categoryStatus, cycleBounds } from './cycle';
 import { undatedDebtsOf } from './dettes';
 import type { PlannedItem, Snapshot, UndatedDebt } from './types';
 
@@ -30,7 +31,10 @@ export interface SimulationResult {
   shortfall: Shortfall | null;
   /** Si la vue standard passe mais la vue prudente non : rentrées dont l'achat dépend. */
   dependsOn: { shortfall: Shortfall; incomes: PlannedItem[] } | null;
+  /** Dépassement du plafond : `over` est le montant à réaffecter depuis une autre enveloppe. */
   categoryOverrun: { category: string; cap: Francs; over: Francs } | null;
+  /** Achat dans une enveloppe plaisir : reste de l'enveloppe après l'achat. */
+  pleasure: { category: string; leftAfter: Francs } | null;
   /** Première autre date compatible dans l'horizon, null si aucune. */
   alternativeDate: CivilDate | null;
   undatedDebts: UndatedDebt[];
@@ -102,9 +106,12 @@ export function simulatePurchase(snap: Snapshot, p: PurchaseInput): SimulationRe
     }
   }
 
-  const b = snap.budgets?.find((x) => x.category === p.category);
+  const bounds = cycleBounds(snap.today, snap.cycle ?? { startDay: 1 });
+  const fromCaps = categoryStatus(snap.categories ?? [], snap.operations ?? [], bounds).find((c) => c.category === p.category);
+  const b = fromCaps ?? snap.budgets?.find((x) => x.category === p.category);
   const over = b ? b.spent + p.amount - b.cap : 0;
   const categoryOverrun = b && over > 0 ? { category: b.category, cap: b.cap, over } : null;
+  const pleasure = fromCaps?.pleasure ? { category: fromCaps.category, leftAfter: fromCaps.cap - fromCaps.spent - p.amount } : null;
 
   let alternativeDate: CivilDate | null = null;
   if (shortfall) {
@@ -126,6 +133,7 @@ export function simulatePurchase(snap: Snapshot, p: PurchaseInput): SimulationRe
     shortfall,
     dependsOn,
     categoryOverrun,
+    pleasure,
     alternativeDate,
     undatedDebts: [...(snap.undatedDebts ?? []), ...undatedDebtsOf(snap.debts ?? [])],
     preexistingDeficit,

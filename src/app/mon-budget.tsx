@@ -1,11 +1,12 @@
+import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
-import { Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import {
-  adviseSavings, endOfMonth, formatDateFr, formatFcfa, incomeStats, parseFcfa, progressOf, REPERES_ABIDJAN, simulateScenario,
-  spendingPace, startOfMonth, upcomingEssentials,
+  adviseSavings, currentCycle, formatDateFr, formatFcfa, incomeStats, parseFcfa, progressOf, REPERES_ABIDJAN, simulateScenario,
+  spendingPace, upcomingEssentials,
 } from '@/domain';
 
 const n = (t: string) => parseFcfa(t) ?? 0;
@@ -13,8 +14,7 @@ const n = (t: string) => parseFcfa(t) ?? 0;
 export default function MonBudget() {
   const { snapshot } = useFinance();
   const today = snapshot?.today ?? '2026-11-12';
-  const cycleStart = startOfMonth(today);
-  const cycleEnd = endOfMonth(today);
+  const { start: cycleStart, end: cycleEnd } = snapshot ? currentCycle(snapshot) : { start: today, end: today };
 
   // Valeurs réelles tirées des opérations enregistrées ; modifiables pour simuler d'autres hypothèses.
   const stats = useMemo(() => incomeStats(snapshot?.operations ?? [], today, cycleStart), [snapshot, today, cycleStart]);
@@ -56,6 +56,7 @@ export default function MonBudget() {
   return (
     <Screen>
       <Title>Mon budget</Title>
+      <Button variant="secondaire" label="Cycle et enveloppes (plafonds, budget plaisir)" onPress={() => router.push('/enveloppes')} />
       <Card>
         <Label muted>Prérempli avec la moyenne de vos 3 derniers mois et les charges prévues sur 30 jours. Modifiez pour simuler.</Label>
         <Field label="Revenu principal par mois (F)" value={income} onChangeText={setIncome} keyboardType="number-pad" />
@@ -82,7 +83,7 @@ export default function MonBudget() {
       </Card>
 
       <Card tone={pace?.status === 'derapage' ? 'risque' : pace?.status === 'attention' ? 'attention' : undefined}>
-        <Label muted>Rythme du mois ({formatDateFr(cycleStart)} → {formatDateFr(cycleEnd)})</Label>
+        <Label muted>Rythme du cycle ({formatDateFr(cycleStart)} → {formatDateFr(cycleEnd)})</Label>
         <Field label="Enveloppe du quotidien pour le mois (F)" value={plannedSpend} onChangeText={setPlannedSpend} keyboardType="number-pad" />
         {pace ? (
           <>

@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { addDays, type CivilDate, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet } from '@/domain';
+import { addDays, type CategoryCap, type CivilDate, type CycleSettings, type Debt, type IntentRecord, type Operation, type PlannedItem, type SavingsGoal, type Wallet } from '@/domain';
 
 import {
   ConnectionRequiredError, RefusedError, type DebtPaymentInput, type FinanceRepository, type GoalMovementInput, type NewDebt,
-  type NewGoal, type NewIntent, type NewOperation, type NewPlanned, type NewWallet,
+  type NewGoal, type NewIntent, type OperationPatch, type NewOperation, type NewPlanned, type NewWallet,
 } from './repository';
 
 // Lignes brutes de PostgREST, converties explicitement vers les types du domaine.
@@ -37,7 +37,7 @@ export class SupabaseRepository implements FinanceRepository {
 
   async loadSnapshot(today: CivilDate) {
     const from = addDays(today, -120);
-    const [wallets, balances, planned, ops, debts, goals] = await Promise.all([
+    const [wallets, balances, planned, ops, debts, goals, settings, caps, intents] = await Promise.all([
       run(this.db.from('wallets').select('id,name,kind,everyday').order('created_at')),
       run(this.db.from('wallet_balances').select('wallet_id,balance')),
       run(this.db.from('planned_items').select('*').eq('status', 'prevue').order('due_date')),
@@ -45,7 +45,11 @@ export class SupabaseRepository implements FinanceRepository {
       run(this.db.from('operations').select('*').or(`op_date.gte.${from},goal_id.not.is.null`).order('op_date')),
       run(this.db.from('debts').select('*, debt_payments(id, amount, paid_on)').order('created_at')),
       run(this.db.from('goals').select('*').order('created_at')),
+      run(this.db.from('user_settings').select('*').maybeSingle()),
+      run(this.db.from('category_caps').select('category,cap,pleasure').order('category')),
+      run(this.db.from('purchase_intents').select('*').gte('created_on', from).order('created_at', { ascending: false })),
     ]);
+    const st = settings as Row | null;
     const operations = (ops as Row[]).map((o): Operation => ({
       id: o.id, kind: o.kind, walletId: o.wallet_id, toWalletId: o.to_wallet_id ?? undefined, amount: Number(o.amount),
       fee: Number(o.fee), date: o.op_date, label: o.label, category: o.category ?? undefined,
@@ -63,6 +67,13 @@ export class SupabaseRepository implements FinanceRepository {
         }),
       ),
       operations: operations.filter((o) => o.date >= from),
+      cycle: {
+        startDay: st?.cycle_start_day ?? 1, freeStart: st?.free_start ?? undefined, freeNextStart: st?.free_next_start ?? undefined,
+      } satisfies CycleSettings,
+      categories: (caps as Row[]).map((c): CategoryCap => ({ category: c.category, cap: Number(c.cap), pleasure: c.pleasure })),
+      intents: (intents as Row[]).map((i): IntentRecord => ({
+        id: i.id, amount: Number(i.amount), category: i.category, walletId: i.wallet_id, date: i.planned_date, status: i.status, createdOn: i.created_on,
+      })),
       debts: (debts as Row[]).map((d): Debt => ({
         id: d.id, direction: d.direction, person: d.person, initial: Number(d.initial_amount), dueDate: d.due_date ?? undefined,
         walletId: d.wallet_id ?? undefined, certainty: d.certainty ?? undefined, status: d.status,
@@ -144,5 +155,33 @@ export class SupabaseRepository implements FinanceRepository {
     await run(this.db.rpc('record_goal_movement', {
       p_client_key: m.clientKey, p_goal_id: m.goalId, p_wallet_id: m.walletId, p_amount: m.amount, p_date: m.date, p_withdraw: m.withdraw,
     }));
+  }
+
+  async saveCycle(c: CycleSettings) {
+    await run(this.db.from('user_settings').upsert({
+      cycle_start_day: c.startDay, free_start: c.freeStart ?? null, free_next_start: c.freeNextStart ?? null,
+    }, { onConflict: 'user_id' }));
+  }
+
+  async setCategoryCap(c: CategoryCap) {
+    await run(this.db.from('category_caps').upsert({ category: c.category, cap: c.cap, pleasure: c.pleasure }, { onConflict: 'user_id,category' }));
+  }
+
+  async removeCategoryCap(category: string) {
+    await run(this.db.from('category_caps').delete().eq('category', category));
+  }
+
+  async updateIntent(id: string, status: 'achete' | 'abandonne' | 'replanifie' | 'en_pause', date?: CivilDate) {
+    await run(this.db.from('purchase_intents').update({ status, ...(date ? { planned_date: date } : {}) }).eq('id', id));
+  }
+
+  async updateOperation(id: string, p: OperationPatch) {
+    await run(this.db.rpc('update_operation', {
+      p_id: id, p_amount: p.amount, p_op_date: p.date, p_label: p.label, p_category: p.category ?? null, p_wallet_id: p.walletId,
+    }));
+  }
+
+  async deleteOperation(id: string) {
+    await run(this.db.rpc('delete_operation', { p_id: id }));
   }
 }

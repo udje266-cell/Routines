@@ -1,11 +1,11 @@
 import {
   addDays, checkPayment, progressOf, statusAfterPayments,
-  type CivilDate, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet,
+  type CategoryCap, type CivilDate, type CycleSettings, type IntentRecord, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet,
 } from '@/domain';
 
 import {
   RefusedError, type DebtPaymentInput, type FinanceRepository, type GoalMovementInput, type NewDebt, type NewGoal,
-  type NewIntent, type NewOperation, type NewPlanned, type NewWallet,
+  type NewIntent, type NewOperation, type OperationPatch, type NewPlanned, type NewWallet,
 } from './repository';
 
 /**
@@ -20,11 +20,21 @@ export class DemoRepository implements FinanceRepository {
   private debts: Debt[] = [];
   private goals: SavingsGoal[] = [];
   private paymentOps = new Map<string, string>(); // règlement → opération
-  intents: NewIntent[] = [];
+  private intents: IntentRecord[] = [];
+  private intentKeys = new Set<string>();
+  private cycle: CycleSettings = { startDay: 1 };
+  private caps: CategoryCap[] = [];
+  private today: CivilDate;
   private seq = 0;
 
   constructor(today: CivilDate, seed = true) {
+    this.today = today;
     if (!seed) return;
+    this.caps = [
+      { category: 'Sorties', cap: 25_000, pleasure: true },
+      { category: 'Alimentation', cap: 45_000, pleasure: false },
+      { category: 'Transport', cap: 20_000, pleasure: false },
+    ];
     this.wallets = [
       { id: 'demo-wave', name: 'Wave', kind: 'wave', everyday: true, balance: 30_000 },
       { id: 'demo-om', name: 'Orange Money', kind: 'orange_money', everyday: true, balance: 4_500 },
@@ -41,15 +51,17 @@ export class DemoRepository implements FinanceRepository {
     this.ops.push({ id: this.id(), kind: 'rentree', walletId: 'demo-wave', amount: 120_000, date: start, label: 'Salaire', incomeType: 'principal' });
     [5_000, 2_000, 10_000, 3_000, 5_000, 7_500, 2_500, 5_000].forEach((a, i) =>
       this.ops.push({ id: this.id(), kind: 'rentree', walletId: 'demo-esp', amount: a, date: day(i + 1), label: 'Petite somme', incomeType: 'petite' }));
+    const cats = ['Alimentation', 'Transport', 'Sorties', 'Alimentation', 'Sorties', 'Transport'];
     [3_000, 1_500, 12_000, 2_000, 6_500, 4_000, 15_000, 2_500, 8_000, 3_500, 25_000, 1_000].forEach((a, i) =>
-      this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: a, date: day(i), label: 'Dépense', category: 'Quotidien' }));
+      this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: a, date: day(i), label: cats[i % 6], category: cats[i % 6] }));
+    this.intents.push({ id: this.id(), amount: 18_000, category: 'Habillement', walletId: 'demo-wave', date: addDays(today, 1), status: 'en_pause', createdOn: today });
     this.debts = [
       { id: 'demo-dette', direction: 'je_dois', person: 'Koffi', initial: 20_000, dueDate: addDays(today, 10), walletId: 'demo-wave', status: 'ouverte', payments: [] },
       { id: 'demo-creance', direction: 'on_me_doit', person: 'Awa', initial: 15_000, status: 'ouverte', certainty: 'incertaine', payments: [] },
     ];
     this.goals = [{
       id: 'demo-fonds', name: 'Fonds d’urgence', target: 255_000, date: addDays(today, 365), pocketWalletId: 'demo-ep',
-      fromWalletId: 'demo-wave', plannedDay: 28, status: 'actif', movements: [{ id: 'demo-m0', amount: 15_000, date: start }],
+      fromWalletId: 'demo-wave', plannedDay: 28, status: 'actif', movements: [{ id: 'demo-m0', amount: 15_000, date: addDays(start, -5) }],
     }];
   }
 
@@ -88,6 +100,9 @@ export class DemoRepository implements FinanceRepository {
       operations: this.ops.map((o) => ({ ...o })),
       debts: this.debts.map((d) => ({ ...d, payments: [...d.payments] })),
       goals: this.goals.map((g) => ({ ...g, movements: [...g.movements] })),
+      categories: this.caps.map((c) => ({ ...c })),
+      intents: this.intents.map((i) => ({ ...i })),
+      cycle: { ...this.cycle },
     };
   }
 
@@ -116,7 +131,9 @@ export class DemoRepository implements FinanceRepository {
   }
 
   async saveIntent(i: NewIntent) {
-    if (!this.intents.some((x) => x.clientKey === i.clientKey)) this.intents.push(i);
+    if (this.intentKeys.has(i.clientKey)) return;
+    this.intentKeys.add(i.clientKey);
+    this.intents.unshift({ id: this.id(), amount: i.amount, category: i.category, walletId: i.walletId, date: i.date, status: i.status, createdOn: this.today });
   }
 
   async addDebt(d: NewDebt) {
@@ -171,5 +188,47 @@ export class DemoRepository implements FinanceRepository {
       label: `${m.withdraw ? 'Retrait' : 'Épargne'} : ${g.name}`,
     });
     g.movements.push({ id: `op-${m.clientKey}`, amount: m.withdraw ? -m.amount : m.amount, date: m.date });
+  }
+
+  async saveCycle(c: CycleSettings) {
+    this.cycle = { ...c };
+  }
+
+  async setCategoryCap(c: CategoryCap) {
+    this.caps = [...this.caps.filter((x) => x.category !== c.category), c].sort((a, b) => a.category.localeCompare(b.category));
+  }
+
+  async removeCategoryCap(category: string) {
+    this.caps = this.caps.filter((x) => x.category !== category);
+  }
+
+  async updateIntent(id: string, status: IntentRecord['status'], date?: CivilDate) {
+    const i = this.intents.find((x) => x.id === id);
+    if (i) Object.assign(i, { status }, date ? { date } : {});
+  }
+
+  private editable(id: string) {
+    const o = this.ops.find((x) => x.id === id);
+    if (!o) throw new RefusedError('Opération introuvable');
+    if (o.debtId) throw new RefusedError('Annulez ce remboursement depuis la dette.');
+    return o;
+  }
+
+  async updateOperation(id: string, p: OperationPatch) {
+    const o = this.editable(id);
+    if (o.goalId) throw new RefusedError('Opération liée : corrigez-la depuis son objectif.');
+    this.unapply(id);
+    this.apply({ ...o, amount: p.amount, date: p.date, label: p.label, category: p.category, walletId: p.walletId });
+  }
+
+  async deleteOperation(id: string) {
+    const o = this.editable(id);
+    if (o.goalId) {
+      const g = this.goals.find((x) => x.id === o.goalId)!;
+      const left = g.movements.filter((m) => m.id !== id).reduce((s, m) => s + m.amount, 0);
+      if (left < 0) throw new RefusedError('Suppression impossible : l’épargne deviendrait négative.');
+      g.movements = g.movements.filter((m) => m.id !== id);
+    }
+    this.unapply(id);
   }
 }

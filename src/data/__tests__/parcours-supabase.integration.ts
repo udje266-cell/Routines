@@ -6,7 +6,7 @@
 // Lancer : npm run test:integration  (après `npx supabase start`)
 import { createClient } from '@supabase/supabase-js';
 
-import { goalSchedule, incomeStats, progressOf, remainingOf, simulatePurchase } from '@/domain';
+import { categoryStatus, currentCycle, goalSchedule, incomeStats, progressOf, remainingOf, simulatePurchase } from '@/domain';
 
 import { RefusedError } from '../repository';
 
@@ -85,5 +85,35 @@ run('Parcours 1 — portefeuille, loyer, achat testé (Supabase local)', () => {
     expect(progressOf(goal)).toBe(6_000);
     expect(snap.wallets.find((w) => w.id === poche.id)!.balance).toBe(6_000);
     expect(goalSchedule(goal, today).perInstallment).toBe(18_800);
+  });
+
+  it('cycle, enveloppes, achat en pause et historique modifiable', async () => {
+    const repo = new SupabaseRepository(await newUser());
+    const today = '2026-11-12';
+    await repo.addWallet({ name: 'Wave', kind: 'wave', everyday: true, openingBalance: 50_000 });
+    const wave = (await repo.loadSnapshot(today)).wallets[0];
+
+    await repo.saveCycle({ startDay: 25 });
+    await repo.setCategoryCap({ category: 'Sorties', cap: 22_500, pleasure: true });
+    await repo.recordOperation({ clientKey: 'sortie-maquis-01', kind: 'sortie', walletId: wave.id, amount: 12_000, date: '2026-11-03', label: 'Maquis', category: 'Sorties' });
+    let snap = await repo.loadSnapshot(today);
+    expect(currentCycle(snap)).toEqual({ start: '2026-10-25', end: '2026-11-24' });
+    expect(categoryStatus(snap.categories!, snap.operations!, currentCycle(snap))[0]).toMatchObject({ spent: 12_000, left: 10_500 });
+
+    // Pause puis abandon : aucune opération, aucune épargne
+    await repo.saveIntent({ clientKey: 'intent-pause-001', amount: 18_000, category: 'Habillement', walletId: wave.id, date: '2026-11-13', status: 'en_pause' });
+    snap = await repo.loadSnapshot(today);
+    expect(snap.intents![0]).toMatchObject({ status: 'en_pause', createdOn: expect.any(String) });
+    await repo.updateIntent(snap.intents![0].id, 'abandonne');
+    snap = await repo.loadSnapshot(today);
+    expect(snap.intents![0].status).toBe('abandonne');
+    expect(snap.operations).toHaveLength(1);
+
+    // Correction puis suppression
+    const op = snap.operations![0];
+    await repo.updateOperation(op.id, { amount: 10_000, date: op.date, label: 'Maquis', category: 'Sorties', walletId: wave.id });
+    expect((await repo.loadSnapshot(today)).wallets[0].balance).toBe(40_000);
+    await repo.deleteOperation(op.id);
+    expect((await repo.loadSnapshot(today)).wallets[0].balance).toBe(50_000);
   });
 });

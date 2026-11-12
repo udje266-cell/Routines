@@ -1,4 +1,5 @@
 import type { CivilDate } from './dates';
+import type { CategoryCap, CycleSettings, IntentRecord } from './cycle';
 import type { Debt } from './dettes';
 import type { Francs } from './money';
 import type { SavingsGoal } from './objectifs';
@@ -64,4 +65,7 @@ export interface Snapshot {
   operations?: Operation[];
   debts?: Debt[];
   goals?: SavingsGoal[];
+  categories?: CategoryCap[];
+  intents?: IntentRecord[];
+  cycle?: CycleSettings;
 }

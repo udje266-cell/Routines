@@ -2,10 +2,24 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
-  
+
   "public": {
           Tables: {
-            "debt_payments": {
+            "category_caps": {
+                  Row: {
+                    "cap": number,"category": string,"id": string,"pleasure": boolean,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cap": number,"category": string,"id"?: string,"pleasure"?: boolean,"user_id"?: string
+                  }
+                  Update: {
+                    "cap"?: number,"category"?: string,"id"?: string,"pleasure"?: boolean,"user_id"?: string
+                  }
+                  Relationships: [
+
+                  ]
+                },"debt_payments": {
                   Row: {
                     "amount": number,"created_at": string,"debt_id": string,"id": string,"operation_id": string,"paid_on": string,"user_id": string
                   }
@@ -191,14 +205,14 @@ isOneToOne: false
                   ]
                 },"purchase_intents": {
                   Row: {
-                    "amount": number,"category": string,"client_key": string,"created_at": string,"id": string,"planned_date": string,"remind_on": string | null,"status": Database["public"]['Enums']["intent_status"],"user_id": string,"wallet_id": string
+                    "amount": number,"category": string,"client_key": string,"created_at": string,"created_on": string,"id": string,"planned_date": string,"remind_on": string | null,"status": Database["public"]['Enums']["intent_status"],"user_id": string,"wallet_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"category": string,"client_key": string,"created_at"?: string,"id"?: string,"planned_date": string,"remind_on"?: string | null,"status"?: Database["public"]['Enums']["intent_status"],"user_id"?: string,"wallet_id": string
+                    "amount": number,"category": string,"client_key": string,"created_at"?: string,"created_on"?: string,"id"?: string,"planned_date": string,"remind_on"?: string | null,"status"?: Database["public"]['Enums']["intent_status"],"user_id"?: string,"wallet_id": string
                   }
                   Update: {
-                    "amount"?: number,"category"?: string,"client_key"?: string,"created_at"?: string,"id"?: string,"planned_date"?: string,"remind_on"?: string | null,"status"?: Database["public"]['Enums']["intent_status"],"user_id"?: string,"wallet_id"?: string
+                    "amount"?: number,"category"?: string,"client_key"?: string,"created_at"?: string,"created_on"?: string,"id"?: string,"planned_date"?: string,"remind_on"?: string | null,"status"?: Database["public"]['Enums']["intent_status"],"user_id"?: string,"wallet_id"?: string
                   }
                   Relationships: [
                     {
@@ -215,6 +229,20 @@ isOneToOne: false
       referencedColumns: ["user_id","id"]
     }
                   ]
+                },"user_settings": {
+                  Row: {
+                    "cycle_start_day": number,"free_next_start": string | null,"free_start": string | null,"small_threshold": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cycle_start_day"?: number,"free_next_start"?: string | null,"free_start"?: string | null,"small_threshold"?: number,"user_id"?: string
+                  }
+                  Update: {
+                    "cycle_start_day"?: number,"free_next_start"?: string | null,"free_start"?: string | null,"small_threshold"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+
+                  ]
                 },"wallets": {
                   Row: {
                     "created_at": string,"everyday": boolean,"id": string,"kind": Database["public"]['Enums']["wallet_kind"],"name": string,"opening_balance": number,"user_id": string
@@ -227,7 +255,7 @@ isOneToOne: false
                     "created_at"?: string,"everyday"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["wallet_kind"],"name"?: string,"opening_balance"?: number,"user_id"?: string
                   }
                   Relationships: [
-                    
+
                   ]
                 }
           }
@@ -244,13 +272,16 @@ isOneToOne: false
                            "balance"?: never,"user_id"?: string | null,"wallet_id"?: string | null
                          }
                         Relationships: [
-                    
+
                   ]
                 }
           }
           Functions: {
             "cancel_debt_payment":
 { Args: { "p_payment_id": string }; Returns: undefined
+                           },
+"delete_operation":
+{ Args: { "p_id": string }; Returns: undefined
                            },
 "record_debt_payment":
 { Args: { "p_amount": number,"p_client_key": string,"p_date": string,"p_debt_id": string,"p_wallet_id": string }; Returns: {
@@ -329,7 +360,32 @@ isOneToOne: false
       } },
 "refresh_debt_status":
 { Args: { "p_debt_id": string }; Returns: undefined
-                           }
+                           },
+"update_operation":
+{ Args: { "p_amount": number,"p_category": string,"p_id": string,"p_label": string,"p_op_date": string,"p_wallet_id": string }; Returns: {
+              "amount": number,
+"category": string | null,
+"client_key": string,
+"created_at": string,
+"debt_id": string | null,
+"fee": number,
+"goal_id": string | null,
+"id": string,
+"income_type": Database["public"]['Enums']["income_type"] | null,
+"kind": Database["public"]['Enums']["planned_kind"],
+"label": string,
+"op_date": string,
+"planned_item_id": string | null,
+"to_wallet_id": string | null,
+"user_id": string,
+"wallet_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "operations"
+        isOneToOne: true
+        isSetofReturn: false
+      } }
           }
           Enums: {
             "certainty": "attendue"|"incertaine","debt_direction": "je_dois"|"on_me_doit","debt_status": "ouverte"|"reglee"|"annulee"|"remise","goal_status": "actif"|"atteint"|"abandonne","income_type": "principal"|"petite","intent_status": "en_pause"|"achete"|"abandonne"|"replanifie","planned_kind": "sortie"|"rentree"|"transfert","planned_status": "prevue"|"reglee"|"annulee","wallet_kind": "especes"|"wave"|"orange_money"|"banque"|"epargne"

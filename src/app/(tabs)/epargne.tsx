@@ -7,11 +7,11 @@ import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
   addDays, adviseSavings, formatDateFr, formatFcfa, goalRemaining, goalSchedule, incomeStats, parseFcfa, progressOf,
-  startOfMonth, upcomingEssentials, type SavingsGoal, type Snapshot,
+  currentCycle, upcomingEssentials, type SavingsGoal, type Snapshot,
 } from '@/domain';
 
 function advice(snap: Snapshot) {
-  const st = incomeStats(snap.operations ?? [], snap.today, startOfMonth(snap.today));
+  const st = incomeStats(snap.operations ?? [], snap.today, currentCycle(snap).start);
   const essentials = upcomingEssentials(snap);
   const a = adviseSavings({
     today: snap.today, income: st.mainMonthly, smallIncome: st.smallMonthly, essentials,

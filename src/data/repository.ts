@@ -1,4 +1,4 @@
-import type { Certainty, CivilDate, DebtDirection, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
+import type { CategoryCap, Certainty, CivilDate, CycleSettings, DebtDirection, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
 
 export interface NewWallet {
   name: string;
@@ -95,4 +95,20 @@ export interface FinanceRepository {
   addGoal(g: NewGoal): Promise<void>;
   /** Versement ou retrait réel : transfert atomique entre le quotidien et la poche d'épargne. */
   moveGoal(m: GoalMovementInput): Promise<void>;
+  saveCycle(c: CycleSettings): Promise<void>;
+  /** Crée ou met à jour le plafond d'une catégorie. */
+  setCategoryCap(c: CategoryCap): Promise<void>;
+  removeCategoryCap(category: string): Promise<void>;
+  /** Achat en pause : reprise (replanifié à une date), achat effectué ou abandon. */
+  updateIntent(id: string, status: 'achete' | 'abandonne' | 'replanifie' | 'en_pause', date?: CivilDate): Promise<void>;
+  updateOperation(id: string, patch: OperationPatch): Promise<void>;
+  deleteOperation(id: string): Promise<void>;
+}
+
+export interface OperationPatch {
+  amount: Francs;
+  date: CivilDate;
+  label: string;
+  category?: string;
+  walletId: string;
 }
