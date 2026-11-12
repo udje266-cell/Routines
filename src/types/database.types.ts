@@ -1,0 +1,293 @@
+
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
+export type Database = {
+  
+  "public": {
+          Tables: {
+            "operations": {
+                  Row: {
+                    "amount": number,"category": string | null,"client_key": string,"created_at": string,"fee": number,"id": string,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"op_date": string,"planned_item_id": string | null,"to_wallet_id": string | null,"user_id": string,"wallet_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"category"?: string | null,"client_key": string,"created_at"?: string,"fee"?: number,"id"?: string,"kind": Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date": string,"planned_item_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id": string
+                  }
+                  Update: {
+                    "amount"?: number,"category"?: string | null,"client_key"?: string,"created_at"?: string,"fee"?: number,"id"?: string,"kind"?: Database["public"]['Enums']["planned_kind"],"label"?: string,"op_date"?: string,"planned_item_id"?: string | null,"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "operations_user_id_planned_item_id_fkey"
+      columns: ["user_id","planned_item_id"]
+isOneToOne: false
+      referencedRelation: "planned_items"
+      referencedColumns: ["user_id","id"]
+    },{
+      foreignKeyName: "operations_user_id_to_wallet_id_fkey"
+      columns: ["user_id","to_wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallet_balances"
+      referencedColumns: ["user_id","wallet_id"]
+    },{
+      foreignKeyName: "operations_user_id_to_wallet_id_fkey"
+      columns: ["user_id","to_wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallets"
+      referencedColumns: ["user_id","id"]
+    },{
+      foreignKeyName: "operations_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallet_balances"
+      referencedColumns: ["user_id","wallet_id"]
+    },{
+      foreignKeyName: "operations_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallets"
+      referencedColumns: ["user_id","id"]
+    }
+                  ]
+                },"planned_items": {
+                  Row: {
+                    "amount": number,"category": string | null,"certainty": Database["public"]['Enums']["certainty"] | null,"created_at": string,"due_date": string,"funded_by_income_id": string | null,"id": string,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"source": string | null,"status": Database["public"]['Enums']["planned_status"],"to_wallet_id": string | null,"user_id": string,"wallet_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"category"?: string | null,"certainty"?: Database["public"]['Enums']["certainty"] | null,"created_at"?: string,"due_date": string,"funded_by_income_id"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["planned_kind"],"label": string,"source"?: string | null,"status"?: Database["public"]['Enums']["planned_status"],"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id": string
+                  }
+                  Update: {
+                    "amount"?: number,"category"?: string | null,"certainty"?: Database["public"]['Enums']["certainty"] | null,"created_at"?: string,"due_date"?: string,"funded_by_income_id"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["planned_kind"],"label"?: string,"source"?: string | null,"status"?: Database["public"]['Enums']["planned_status"],"to_wallet_id"?: string | null,"user_id"?: string,"wallet_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "planned_items_user_id_to_wallet_id_fkey"
+      columns: ["user_id","to_wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallet_balances"
+      referencedColumns: ["user_id","wallet_id"]
+    },{
+      foreignKeyName: "planned_items_user_id_to_wallet_id_fkey"
+      columns: ["user_id","to_wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallets"
+      referencedColumns: ["user_id","id"]
+    },{
+      foreignKeyName: "planned_items_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallet_balances"
+      referencedColumns: ["user_id","wallet_id"]
+    },{
+      foreignKeyName: "planned_items_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallets"
+      referencedColumns: ["user_id","id"]
+    }
+                  ]
+                },"purchase_intents": {
+                  Row: {
+                    "amount": number,"category": string,"client_key": string,"created_at": string,"id": string,"planned_date": string,"remind_on": string | null,"status": Database["public"]['Enums']["intent_status"],"user_id": string,"wallet_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"category": string,"client_key": string,"created_at"?: string,"id"?: string,"planned_date": string,"remind_on"?: string | null,"status"?: Database["public"]['Enums']["intent_status"],"user_id"?: string,"wallet_id": string
+                  }
+                  Update: {
+                    "amount"?: number,"category"?: string,"client_key"?: string,"created_at"?: string,"id"?: string,"planned_date"?: string,"remind_on"?: string | null,"status"?: Database["public"]['Enums']["intent_status"],"user_id"?: string,"wallet_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "purchase_intents_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallet_balances"
+      referencedColumns: ["user_id","wallet_id"]
+    },{
+      foreignKeyName: "purchase_intents_user_id_wallet_id_fkey"
+      columns: ["user_id","wallet_id"]
+isOneToOne: false
+      referencedRelation: "wallets"
+      referencedColumns: ["user_id","id"]
+    }
+                  ]
+                },"wallets": {
+                  Row: {
+                    "created_at": string,"everyday": boolean,"id": string,"kind": Database["public"]['Enums']["wallet_kind"],"name": string,"opening_balance": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"everyday"?: boolean,"id"?: string,"kind": Database["public"]['Enums']["wallet_kind"],"name": string,"opening_balance"?: number,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"everyday"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["wallet_kind"],"name"?: string,"opening_balance"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                }
+          }
+          Views: {
+            "wallet_balances": {
+                  Row: {
+                    "balance": number | null,"user_id": string,"wallet_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "balance"?: never,"user_id"?: string | null,"wallet_id"?: string | null
+                         }
+                        Update: {
+                           "balance"?: never,"user_id"?: string | null,"wallet_id"?: string | null
+                         }
+                        Relationships: [
+                    
+                  ]
+                }
+          }
+          Functions: {
+            "record_operation":
+{ Args: { "p_amount": number,"p_category"?: string,"p_client_key": string,"p_fee"?: number,"p_kind": Database["public"]['Enums']["planned_kind"],"p_label"?: string,"p_op_date": string,"p_planned_item_id"?: string,"p_to_wallet_id"?: string,"p_wallet_id": string }; Returns: {
+              "amount": number,
+"category": string | null,
+"client_key": string,
+"created_at": string,
+"fee": number,
+"id": string,
+"kind": Database["public"]['Enums']["planned_kind"],
+"label": string,
+"op_date": string,
+"planned_item_id": string | null,
+"to_wallet_id": string | null,
+"user_id": string,
+"wallet_id": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "operations"
+        isOneToOne: true
+        isSetofReturn: false
+      } }
+          }
+          Enums: {
+            "certainty": "attendue"|"incertaine","intent_status": "en_pause"|"achete"|"abandonne"|"replanifie","planned_kind": "sortie"|"rentree"|"transfert","planned_status": "prevue"|"reglee"|"annulee","wallet_kind": "especes"|"wave"|"orange_money"|"banque"|"epargne"
+          }
+          CompositeTypes: {
+            [_ in never]: never
+          }
+        }
+}
+
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never
+> = PublicCompositeTypeNameOrOptions extends { schema: keyof DatabaseWithoutInternals }
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never
+
+export const Constants = {
+  "public": {
+          Enums: {
+            "certainty": ["attendue", "incertaine"],"intent_status": ["en_pause", "achete", "abandonne", "replanifie"],"planned_kind": ["sortie", "rentree", "transfert"],"planned_status": ["prevue", "reglee", "annulee"],"wallet_kind": ["especes", "wave", "orange_money", "banque", "epargne"]
+          }
+        }
+} as const

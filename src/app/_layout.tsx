@@ -1,18 +1,25 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { useEffect } from 'react';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { C } from '@/components/ui';
+import { FinanceProvider } from '@/data/finance-context';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <FinanceProvider>
+      <Stack screenOptions={{ headerTintColor: C.texte, contentStyle: { backgroundColor: C.fond } }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="connexion" options={{ title: 'Mes Finances', headerBackVisible: false }} />
+        <Stack.Screen name="tester-achat" options={{ title: 'Tester un achat', presentation: 'modal' }} />
+        <Stack.Screen name="ajouter" options={{ title: 'Ajouter', presentation: 'modal' }} />
+        <Stack.Screen name="mon-budget" options={{ title: 'Mon budget' }} />
+      </Stack>
+    </FinanceProvider>
   );
 }
