@@ -24,7 +24,7 @@ export const AIDE = {
   },
   plan: {
     titre: 'Mon plan du mois',
-    texte: 'Entrées prévues : tout l’argent qui arrive ce mois-ci.\nSorties prévues : vos factures et dépenses connues.\nIl reste : la différence.\n\nEnsuite, l’application vous dit combien mettre de côté, quel jour (de préférence le jour de la paie, avant toute dépense) et combien dépenser au maximum par jour. Suivez simplement les étapes numérotées.',
+    texte: 'Entrées prévues : tout l’argent qui arrive ce mois-ci.\nSorties prévues : vos factures et dépenses connues.\nDettes à rembourser : la part de vos dettes à payer ce mois-ci (une dette sans date est étalée sur 3 mois ; une dette datée, jusqu’à sa date).\nIl reste : la différence.\n\nEnsuite, l’application vous dit combien mettre de côté, quel jour (de préférence le jour de la paie, avant toute dépense) et combien dépenser au maximum par jour. Suivez simplement les étapes numérotées.',
   },
   agenda: {
     titre: 'L’agenda',

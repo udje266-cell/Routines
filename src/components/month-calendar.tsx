@@ -162,10 +162,11 @@ export function PlanCard({ plan }: { plan: MonthPlan }) {
       {[
         ['Entrées prévues', `+${formatFcfa(plan.income)}`, C.mentheTexte],
         ['Sorties prévues', `−${formatFcfa(plan.expenses)}`, C.texte],
+        ...(plan.debtReserve > 0 ? [['Dettes à rembourser', `−${formatFcfa(plan.debtReserve)}`, C.texte]] : []),
         ['Il reste', formatFcfa(plan.left), short ? C.risque : C.texte],
-      ].map(([l, v, col], i) => (
-        <View key={l} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: i === 2 ? 8 : 0, borderTopWidth: i === 2 ? 1 : 0, borderTopColor: 'rgba(30,24,59,0.15)' }}>
-          <Text style={{ fontSize: 16, color: C.texte, fontWeight: i === 2 ? '800' : '400' }}>{l}</Text>
+      ].map(([l, v, col], i, rows) => (
+        <View key={l} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: i === rows.length - 1 ? 8 : 0, borderTopWidth: i === rows.length - 1 ? 1 : 0, borderTopColor: 'rgba(30,24,59,0.15)' }}>
+          <Text style={{ fontSize: 16, color: C.texte, fontWeight: i === rows.length - 1 ? '800' : '400' }}>{l}</Text>
           <Text style={{ fontSize: 16, fontWeight: '800', color: col }}>{v}</Text>
         </View>
       ))}

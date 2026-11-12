@@ -48,3 +48,34 @@ it('mois déficitaire : pas d’épargne, quoi reporter', () => {
   expect(p.advice.shortBy).toBe(15_000);
   expect(p.advice.steps[1]).toMatch(/Loyer/);
 });
+
+describe('dettes dans le plan du mois', () => {
+  const debt = (id: string, initial: number, dueDate?: string, walletId?: string) => ({
+    id, direction: 'je_dois' as const, person: id, initial, dueDate, walletId, status: 'ouverte' as const, payments: [],
+  });
+  const base = monthPlan(snap);
+
+  it('une dette sans date est étalée sur 3 mois et passe avant l’épargne', () => {
+    const p = monthPlan({ ...snap, debts: [debt('Awa', 30_000)] });
+    expect(p.debtReserve).toBe(10_000);
+    expect(p.left).toBe(base.left - 10_000);
+    expect(p.advice.save).toBeLessThanOrEqual(base.advice.save);
+    expect(p.advice.steps.some((s) => s.includes('Remboursez d’abord vos dettes'))).toBe(true);
+  });
+
+  it('une dette datée plus tard est répartie jusqu’à sa date ; échue ou sans compte, tout est dû', () => {
+    expect(monthPlan({ ...snap, debts: [debt('Koffi', 60_000, '2027-01-20', 'w')] }).debtReserve).toBe(20_000);
+    expect(monthPlan({ ...snap, debts: [debt('Yao', 15_000, '2026-10-01')] }).debtReserve).toBe(15_000);
+  });
+
+  it('une dette datée dans le mois avec un compte n’est pas comptée deux fois', () => {
+    const p = monthPlan({ ...snap, debts: [debt('Ali', 8_000, '2026-11-20', 'w')] });
+    expect(p.debtReserve).toBe(0);
+    expect(p.expenses).toBe(base.expenses + 8_000);
+  });
+
+  it('une créance (on me doit) ne réduit pas ce qui reste', () => {
+    const p = monthPlan({ ...snap, debts: [{ ...debt('Moi', 50_000), direction: 'on_me_doit' as const }] });
+    expect(p.debtReserve).toBe(0);
+  });
+});
