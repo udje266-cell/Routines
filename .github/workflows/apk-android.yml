@@ -43,7 +43,10 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      # Le kit Android est déjà installé sur les serveurs GitHub (ANDROID_HOME) ;
+      # Gradle télécharge lui-même les composants manquants.
+      - name: Kit Android
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME"
 
       - uses: gradle/actions/setup-gradle@v4
 
