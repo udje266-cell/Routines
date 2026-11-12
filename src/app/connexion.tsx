@@ -12,6 +12,9 @@ export default function Connexion() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState<{ tone: 'ok' | 'risque'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Après l'inscription : confirmation de l'adresse par code à 6 chiffres saisi ici (aucun lien à ouvrir).
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState('');
 
   async function auth(kind: 'connexion' | 'inscription') {
     if (!supabase) return;
@@ -23,8 +26,10 @@ export default function Connexion() {
         kind === 'connexion' ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({ email, password });
       if (res.error) throw res.error;
-      if (kind === 'inscription' && !('session' in res.data && res.data.session))
-        return setMessage({ tone: 'ok', text: 'Vérifiez votre boîte mail pour confirmer le compte.' });
+      if (kind === 'inscription' && !('session' in res.data && res.data.session)) {
+        setAwaitingCode(true);
+        return setMessage({ tone: 'ok', text: 'Un code à 6 chiffres vient d’être envoyé à votre adresse. Saisissez-le pour activer le compte.' });
+      }
       openAccount();
       router.replace('/');
     } catch (e) {
@@ -33,6 +38,31 @@ export default function Connexion() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function confirmCode() {
+    if (!supabase) return;
+    if (!/^\d{6}$/.test(code.trim())) return setMessage({ tone: 'risque', text: 'Le code contient 6 chiffres.' });
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'email' });
+      if (error) throw error;
+      openAccount();
+      router.replace('/');
+    } catch (e) {
+      const msg = String((e as Error).message ?? e);
+      setMessage({ tone: 'risque', text: /fetch|network/i.test(msg) ? 'Connexion requise : le serveur ne répond pas.' : 'Code invalide ou expiré.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    if (!supabase) return;
+    setBusy(true);
+    const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim() });
+    setBusy(false);
+    setMessage(error ? { tone: 'risque', text: 'Envoi impossible pour le moment, réessayez plus tard.' } : { tone: 'ok', text: 'Nouveau code envoyé.' });
   }
 
   return (
@@ -46,6 +76,13 @@ export default function Connexion() {
           <Field label="Adresse e-mail" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
           <Field label="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" />
           {message ? <Status tone={message.tone}>{message.text}</Status> : null}
+          {awaitingCode ? (
+            <>
+              <Field label="Code de confirmation (6 chiffres)" value={code} onChangeText={setCode} keyboardType="number-pad" autoComplete="one-time-code" />
+              <Button label="Confirmer mon adresse" disabled={busy} onPress={confirmCode} />
+              <Button label="Renvoyer le code" variant="secondaire" disabled={busy} onPress={resend} />
+            </>
+          ) : null}
           <Button label="Se connecter" disabled={busy} onPress={() => auth('connexion')} />
           <Button label="Créer un compte" variant="secondaire" disabled={busy} onPress={() => auth('inscription')} />
           <Button label="Mot de passe oublié" variant="secondaire" disabled={busy} onPress={() => router.push('/recuperation')} />

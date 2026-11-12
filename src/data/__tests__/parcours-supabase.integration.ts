@@ -193,4 +193,16 @@ run('Parcours 1 — portefeuille, loyer, achat testé (Supabase local)', () => {
     expect((await db.auth.signInWithPassword({ email, password: 'nouveau-motdepasse' })).error).toBeNull();
     expect((await db.auth.signInWithPassword({ email, password: 'ancien-motdepasse' })).error).not.toBeNull();
   });
+
+  (process.env.SUPABASE_TEST_SECRET_KEY ? it : it.skip)('confirmation d’inscription par code à 6 chiffres', async () => {
+    const email = `inscription-${Date.now()}@exemple.test`;
+    const admin = createClient(URL, process.env.SUPABASE_TEST_SECRET_KEY!, { auth: { persistSession: false } });
+    const link = await admin.auth.admin.generateLink({ type: 'signup', email, password: 'motdepasse-de-test' });
+    const code = link.data.properties!.email_otp;
+    expect(code).toMatch(/^\d{6}$/);
+    const db = createClient(URL, KEY, { auth: { persistSession: false } });
+    const v = await db.auth.verifyOtp({ email, token: code, type: 'email' });
+    expect(v.error).toBeNull();
+    expect(v.data.session).not.toBeNull();
+  });
 });
