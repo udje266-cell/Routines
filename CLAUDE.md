@@ -43,7 +43,7 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Intégrité dans un compte : versements, règlements et corrections uniquement depuis/vers un portefeuille du quotidien ; poche d'objectif = portefeuille d'épargne, figée après un versement ; une occurrence réglée doit être une vraie date de la règle.
 
 ## Projet Supabase en ligne
-- Projet `ldfurhmdxvevqwadgfzs` (« Mes Finances », eu-west-1), URL `https://ldfurhmdxvevqwadgfzs.supabase.co`. Migrations jusqu'à `20261117000000` appliquées et inscrites dans `supabase_migrations.schema_migrations` ; tests pgTAP rejoués sur le projet (transactions annulées). `20261118000000_credits` reste à appliquer (avec accord).
+- Projet `ldfurhmdxvevqwadgfzs` (« Mes Finances », eu-west-1), URL `https://ldfurhmdxvevqwadgfzs.supabase.co`. Migrations jusqu'à `20261118000000_credits` appliquées et inscrites dans `supabase_migrations.schema_migrations` ; tests pgTAP rejoués sur le projet (transactions annulées).
 - Auth en ligne : mot de passe 8 caractères, confirmation de l'e-mail active, codes à 6 chiffres.
 - **Bloquant avant ouverture au public** : fournisseur SMTP personnalisé à configurer, puis appliquer `supabase/templates/confirmation.html` et `recuperation.html` (le fournisseur par défaut n'envoie que des liens, 2 e-mails/heure, aux seules adresses de l'équipe).
 - `.env.local` (ignoré par Git) contient l'URL et la clé publique ; jamais la clé secrète.
