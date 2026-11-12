@@ -1,0 +1,90 @@
+# Compile l'APK de test de Mes Finances sur GitHub (sans la file d'attente d'Expo)
+# et le publie dans une « Release » GitHub, avec un lien de téléchargement direct.
+#
+# Prérequis : un secret de dépôt EXPO_TOKEN (Settings › Secrets and variables › Actions).
+# La clé de signature reste celle conservée par Expo : chaque nouvelle version s'installe
+# par-dessus la précédente.
+
+name: APK Android (test)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/finances-wallet-forecasts-otbroy]
+    paths:
+      - 'src/**'
+      - 'assets/**'
+      - 'app.json'
+      - 'eas.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/apk-android.yml'
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write # publier la Release avec l'APK
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Vérifier le jeton Expo
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Ajoutez le secret EXPO_TOKEN (Settings › Secrets and variables › Actions)."
+            exit 1
+          fi
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Tests du moteur financier
+        run: npm test -- --runInBand
+
+      - name: Compiler l'APK (profil preview, clé de signature Expo)
+        run: eas build --platform android --profile preview --local --non-interactive --output mes-finances-preview.apk
+
+      - name: Version
+        id: v
+        run: echo "version=$(node -p "require('./app.json').expo.version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mes-finances-${{ steps.v.outputs.version }}-${{ github.run_number }}
+          path: mes-finances-preview.apk
+
+      - name: Publier la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ steps.v.outputs.version }}-${{ github.run_number }}
+          name: Mes Finances ${{ steps.v.outputs.version }} (test n°${{ github.run_number }})
+          prerelease: true
+          files: mes-finances-preview.apk
+          body: |
+            APK de test de Mes Finances, compilé par GitHub Actions.
+            Sur le téléphone : ouvrir ce lien, télécharger `mes-finances-preview.apk`, puis l'installer.
