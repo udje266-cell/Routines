@@ -283,4 +283,13 @@ export class DemoRepository implements FinanceRepository {
     const r = this.rules.find((y) => y.id === ruleId);
     if (r) r.end = end;
   }
+
+  async reschedulePlanned(id: string, date: CivilDate) {
+    const p = this.planned.find((x) => x.id === id);
+    if (p) p.date = date;
+  }
+
+  async deleteAccount() {
+    throw new RefusedError('La découverte n’a pas de compte : quittez-la simplement.');
+  }
 }

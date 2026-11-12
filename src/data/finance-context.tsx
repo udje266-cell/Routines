@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 
-import { todayAbidjan, type Snapshot } from '@/domain';
+import { buildReminders, todayAbidjan, type Snapshot } from '@/domain';
+import { cancelReminders, scheduleReminders } from '@/lib/notifications';
+import { clearPrefs, DEFAULT_PREFS, loadPrefs, savePrefs, type DevicePrefs } from '@/lib/preferences';
 import { supabase } from '@/lib/supabase';
 
 import { DemoRepository } from './demo-repository';
@@ -20,6 +23,12 @@ interface FinanceState {
   refresh(): Promise<void>;
   /** Exécute une écriture puis recharge ; lève ConnectionRequiredError si le serveur ne répond pas. */
   write(fn: (repo: FinanceRepository) => Promise<void>): Promise<void>;
+  prefs: DevicePrefs;
+  /** Faux tant que les préférences de l'appareil (dont le verrou) ne sont pas lues. */
+  prefsLoaded: boolean;
+  setPrefs(p: DevicePrefs): Promise<void>;
+  /** Supprime le compte sur le serveur puis efface tout ce qui reste sur l'appareil. */
+  deleteAccount(): Promise<void>;
 }
 
 const Ctx = createContext<FinanceState | null>(null);
@@ -29,6 +38,26 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [status, setStatus] = useState<Status>('deconnecte');
   const [error, setError] = useState<string | null>(null);
+  const [prefs, setPrefsState] = useState<DevicePrefs>(DEFAULT_PREFS);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+
+  useEffect(() => {
+    loadPrefs().then((p) => {
+      setPrefsState(p);
+      setPrefsLoaded(true);
+    });
+  }, []);
+
+  // Rappels reprogrammés à chaque changement de données ou de réglage (jamais en découverte, jamais sur le web).
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!snapshot || repo?.mode !== 'compte' || !prefs.reminders.enabled) {
+      cancelReminders().catch(() => {});
+      return;
+    }
+    scheduleReminders(buildReminders(snapshot, prefs.reminders)).catch(() => {});
+  }, [snapshot, prefs, repo]);
+
 
   const load = useCallback(async (r: FinanceRepository) => {
     setStatus((s) => (s === 'pret' ? s : 'chargement'));
@@ -54,16 +83,26 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     [load],
   );
 
+  const wipeDevice = useCallback(async () => {
+    if (Platform.OS !== 'web') await cancelReminders().catch(() => {});
+    await clearPrefs().catch(() => {});
+    setPrefsState(DEFAULT_PREFS);
+  }, []);
+
   useEffect(() => {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) select(new SupabaseRepository(supabase!));
     });
     const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') select(null);
+      // Déconnexion, y compris forcée par le serveur (jeton révoqué) : on efface aussi l'appareil.
+      if (event === 'SIGNED_OUT') {
+        wipeDevice();
+        select(null);
+      }
     });
     return () => data.subscription.unsubscribe();
-  }, [select]);
+  }, [select, wipeDevice]);
 
   const value = useMemo<FinanceState>(
     () => ({
@@ -73,8 +112,25 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         if (supabase) select(new SupabaseRepository(supabase));
       },
       signOut: async () => {
-        // efface la session chiffrée de l'appareil ; les données ne sont gardées qu'en mémoire
-        if (repo?.mode === 'compte') await supabase?.auth.signOut({ scope: 'local' });
+        // efface la session chiffrée, les rappels et les préférences de l'appareil ; les données n'étaient qu'en mémoire
+        try {
+          if (repo?.mode === 'compte') await supabase?.auth.signOut({ scope: 'local' });
+        } finally {
+          if (repo?.mode === 'compte') await wipeDevice();
+          select(null);
+        }
+      },
+      prefs,
+      prefsLoaded,
+      setPrefs: async (p) => {
+        await savePrefs(p);
+        setPrefsState(p);
+      },
+      deleteAccount: async () => {
+        if (!repo) return;
+        await repo.deleteAccount();
+        await supabase?.auth.signOut({ scope: 'local' }).catch(() => {});
+        await wipeDevice();
         select(null);
       },
       refresh: async () => {
@@ -91,7 +147,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         await load(repo);
       },
     }),
-    [repo, snapshot, status, error, load, select],
+    [repo, snapshot, status, error, load, select, prefs, prefsLoaded, wipeDevice],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

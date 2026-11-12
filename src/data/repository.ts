@@ -112,6 +112,10 @@ export interface FinanceRepository {
   splitRecurring(ruleId: string, fromOriginal: CivilDate, p: { amount: Francs; day: number; label: string; walletId: string }): Promise<void>;
   /** Arrête la dépense mensuelle après une date (dernière occurrence incluse). */
   stopRecurring(ruleId: string, end: CivilDate): Promise<void>;
+  /** Replanifie une échéance ponctuelle ou une rentrée en retard. */
+  reschedulePlanned(id: string, date: CivilDate): Promise<void>;
+  /** Supprime définitivement le compte et toutes ses données. */
+  deleteAccount(): Promise<void>;
 }
 
 export interface NewRecurring {

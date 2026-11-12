@@ -13,17 +13,16 @@ export default function Connexion() {
   const [message, setMessage] = useState<{ tone: 'ok' | 'risque'; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function auth(kind: 'connexion' | 'inscription' | 'recuperation') {
+  async function auth(kind: 'connexion' | 'inscription') {
     if (!supabase) return;
+    if (kind === 'inscription' && password.length < 8) return setMessage({ tone: 'risque', text: 'Mot de passe : 8 caractères minimum.' });
     setBusy(true);
     setMessage(null);
     try {
       const res =
         kind === 'connexion' ? await supabase.auth.signInWithPassword({ email, password })
-        : kind === 'inscription' ? await supabase.auth.signUp({ email, password })
-        : await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'mesfinances://recuperation' });
+        : await supabase.auth.signUp({ email, password });
       if (res.error) throw res.error;
-      if (kind === 'recuperation') return setMessage({ tone: 'ok', text: 'Lien de récupération envoyé si le compte existe.' });
       if (kind === 'inscription' && !('session' in res.data && res.data.session))
         return setMessage({ tone: 'ok', text: 'Vérifiez votre boîte mail pour confirmer le compte.' });
       openAccount();
@@ -49,7 +48,7 @@ export default function Connexion() {
           {message ? <Status tone={message.tone}>{message.text}</Status> : null}
           <Button label="Se connecter" disabled={busy} onPress={() => auth('connexion')} />
           <Button label="Créer un compte" variant="secondaire" disabled={busy} onPress={() => auth('inscription')} />
-          <Button label="Mot de passe oublié" variant="secondaire" disabled={busy || !email} onPress={() => auth('recuperation')} />
+          <Button label="Mot de passe oublié" variant="secondaire" disabled={busy} onPress={() => router.push('/recuperation')} />
         </Card>
       ) : (
         <Card tone="attention"><Status tone="attention">Serveur non configuré : renseignez .env.local (voir README).</Status></Card>

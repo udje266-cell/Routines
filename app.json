@@ -31,7 +31,19 @@
           "imageWidth": 160
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#1E183B"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Mes Finances utilise Face ID pour protéger l’accès à votre budget."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

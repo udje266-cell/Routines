@@ -164,6 +164,7 @@ export default function Aujourdhui() {
           </Card>
         </>
       )}
+      <Button variant="secondaire" label="Réglages (verrouillage, rappels, compte)" onPress={() => router.push('/reglages')} />
       <Button variant="secondaire" label={repo?.mode === 'demo' ? 'Quitter la découverte' : 'Se déconnecter'} onPress={signOut} />
     </Screen>
   );

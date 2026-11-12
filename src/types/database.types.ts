@@ -184,6 +184,12 @@ isOneToOne: false
                   }
                   Relationships: [
                     {
+      foreignKeyName: "planned_items_user_id_funded_by_income_id_fkey"
+      columns: ["user_id","funded_by_income_id"]
+isOneToOne: false
+      referencedRelation: "planned_items"
+      referencedColumns: ["user_id","id"]
+    },{
       foreignKeyName: "planned_items_user_id_to_wallet_id_fkey"
       columns: ["user_id","to_wallet_id"]
 isOneToOne: false
@@ -331,6 +337,9 @@ isOneToOne: false
           Functions: {
             "cancel_debt_payment":
 { Args: { "p_payment_id": string }; Returns: undefined
+                           },
+"delete_my_account":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "delete_operation":
 { Args: { "p_id": string }; Returns: undefined

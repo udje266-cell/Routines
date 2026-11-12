@@ -11,3 +11,4 @@ export * from "./dettes";
 export * from "./objectifs";
 export * from "./revenus";
 export * from "./cycle";
+export * from "./rappels";

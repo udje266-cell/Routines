@@ -229,4 +229,12 @@ export class SupabaseRepository implements FinanceRepository {
   async stopRecurring(ruleId: string, end: string) {
     await run(this.db.from('recurring_rules').update({ end_date: end }).eq('id', ruleId));
   }
+
+  async reschedulePlanned(id: string, date: string) {
+    await run(this.db.from('planned_items').update({ due_date: date }).eq('id', id));
+  }
+
+  async deleteAccount() {
+    await run(this.db.rpc('delete_my_account'));
+  }
 }

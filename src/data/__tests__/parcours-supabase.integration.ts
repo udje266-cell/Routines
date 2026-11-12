@@ -140,4 +140,57 @@ run('Parcours 1 — portefeuille, loyer, achat testé (Supabase local)', () => {
     // Le loyer de décembre déplacé au 3 janvier n'est pas payé : il reste à couvrir aujourd'hui, puis la nouvelle règle.
     expect(forecast(snap).events.map((e) => [e.date, e.item.amount])).toEqual([['2027-01-04', 27_000], ['2027-02-05', 30_000]]);
   });
+
+  it('rentrée confirmée en partie, replanification, transfert avec frais, suppression du compte', async () => {
+    const db = await newUser();
+    const repo = new SupabaseRepository(db);
+    const today = '2026-11-12';
+    await repo.addWallet({ name: 'Wave', kind: 'wave', everyday: true, openingBalance: 30_000 });
+    await repo.addWallet({ name: 'Orange Money', kind: 'orange_money', everyday: true, openingBalance: 0 });
+    let snap = await repo.loadSnapshot(today);
+    const [wave, om] = snap.wallets;
+    await repo.addPlanned({ kind: 'rentree', label: 'Client', amount: 20_000, date: '2026-11-10', walletId: wave.id, certainty: 'attendue' });
+    snap = await repo.loadSnapshot(today);
+    const income = snap.planned[0];
+    expect(forecast(snap).lateIncomes.map((i) => i.id)).toEqual([income.id]);
+
+    // Replanifiée au 16 : elle revient dans la vue standard.
+    await repo.reschedulePlanned(income.id, '2026-11-16');
+    snap = await repo.loadSnapshot(today);
+    expect(forecast(snap).events.map((e) => e.date)).toEqual(['2026-11-16']);
+
+    // Encaissement partiel : 12 000 F reçus, 8 000 F restent prévus.
+    await repo.recordOperation({ clientKey: 'encaisse-client-1', kind: 'rentree', walletId: wave.id, amount: 12_000, date: today, label: 'Client', plannedItemId: income.id, incomeType: 'principal' });
+    snap = await repo.loadSnapshot(today);
+    expect(snap.wallets[0].balance).toBe(42_000);
+    expect(snap.planned[0].amount).toBe(8_000);
+
+    // Transfert Wave → Orange Money avec 100 F de frais : total conservé hors frais.
+    await repo.recordOperation({ clientKey: 'transfert-om-0001', kind: 'transfert', walletId: wave.id, toWalletId: om.id, amount: 10_000, fee: 100, date: today, label: 'Vers OM' });
+    snap = await repo.loadSnapshot(today);
+    expect(snap.wallets.reduce((s, w) => s + w.balance, 0)).toBe(41_900);
+
+    await repo.deleteAccount();
+    const { data } = await db.auth.getUser();
+    expect(data.user).toBeNull();
+  });
+
+  // Récupération par code : le code est obtenu via l'API d'administration de la pile LOCALE
+  // (clé secrète locale lue dans l'environnement, jamais versionnée) au lieu de lire l'e-mail.
+  (process.env.SUPABASE_TEST_SECRET_KEY ? it : it.skip)('récupération d’accès par code à 6 chiffres', async () => {
+    const email = `recup-${Date.now()}@exemple.test`;
+    const db = createClient(URL, KEY, { auth: { persistSession: false } });
+    await db.auth.signUp({ email, password: 'ancien-motdepasse' });
+    await db.auth.signOut();
+    const admin = createClient(URL, process.env.SUPABASE_TEST_SECRET_KEY!, { auth: { persistSession: false } });
+    const link = await admin.auth.admin.generateLink({ type: 'recovery', email });
+    const code = link.data.properties!.email_otp;
+    expect(code).toMatch(/^\d{6}$/);
+    const v = await db.auth.verifyOtp({ email, token: code, type: 'recovery' });
+    expect(v.error).toBeNull();
+    expect((await db.auth.updateUser({ password: 'nouveau-motdepasse' })).error).toBeNull();
+    await db.auth.signOut();
+    expect((await db.auth.signInWithPassword({ email, password: 'nouveau-motdepasse' })).error).toBeNull();
+    expect((await db.auth.signInWithPassword({ email, password: 'ancien-motdepasse' })).error).not.toBeNull();
+  });
 });
