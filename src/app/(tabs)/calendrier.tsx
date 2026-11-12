@@ -1,3 +1,4 @@
+import { Aide } from '@/components/aide';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -59,7 +60,7 @@ export default function Calendrier() {
   const lowest = fc.events.reduce<ForecastEvent | null>((lo, e) => (!lo || e.total < lo.total ? e : lo), null);
 
   return (
-    <Screen title="Calendrier" subtitle={subtitle}>
+    <Screen title="Calendrier" subtitle={subtitle} help={<Aide k="agenda" size={26} />}>
       <Choice label="" value={view} onChange={setView}
         options={[{ value: 'standard', label: 'Prévu' }, { value: 'prudente', label: 'Prudent' }]} />
       {view === 'prudente' ? <Label muted>Prudent : sans l’argent attendu, au cas où il n’arriverait pas à temps.</Label> : null}

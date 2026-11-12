@@ -1,3 +1,4 @@
+import { Aide } from '@/components/aide';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -27,7 +28,7 @@ export default function Dettes() {
   const total = open.reduce((s, d) => s + remainingOf(d), 0);
 
   return (
-    <Screen title="Dettes">
+    <Screen title="Dettes" help={<Aide k="dettes" size={26} />}>
       <Choice label="" value={tab} onChange={(t) => { setTab(t); setAdding(false); }} options={[{ value: 'je_dois', label: 'Je dois' }, { value: 'on_me_doit', label: 'On me doit' }]} />
       <SummaryCard label={tab === 'je_dois' ? 'Reste à payer' : 'Reste à recevoir'} amount={`${formatFcfa(total)} CFA`} tone={tab === 'je_dois' ? 'lavande' : 'menthe'}>
         {tab === 'on_me_doit' && total ? <Text style={{ fontSize: 14, color: C.secondaire }}>Par prudence, cet argent n’est pas compté dans « Je peux dépenser » tant que vous n’êtes pas sûr de le recevoir.</Text> : null}

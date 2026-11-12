@@ -1,3 +1,4 @@
+import { Aide } from '@/components/aide';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -154,7 +155,10 @@ export function PlanCard({ plan }: { plan: MonthPlan }) {
   const short = plan.left < 0;
   return (
     <View style={{ backgroundColor: short ? C.risqueClair : C.violetClair, borderRadius: 20, padding: 18, gap: 10 }}>
-      <Text style={{ fontSize: 18, fontWeight: '800', color: C.texte }}>Mon plan du mois</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: C.texte }}>Mon plan du mois</Text>
+        <Aide k="plan" />
+      </View>
       {[
         ['Entrées prévues', `+${formatFcfa(plan.income)}`, C.mentheTexte],
         ['Sorties prévues', `−${formatFcfa(plan.expenses)}`, C.texte],

@@ -36,7 +36,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
 ];
 
 export default function Plus() {
-  const { signOut, repo } = useFinance();
+  const { signOut, repo, prefs, setPrefs } = useFinance();
   return (
     <Screen>
       {GROUPS.map((g) => (
@@ -60,6 +60,14 @@ export default function Plus() {
           ))}
         </View>
       ))}
+      <Pressable onPress={() => setPrefs({ ...prefs, tourSeen: false }).then(() => router.navigate('/'))} accessibilityRole="button"
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 14, backgroundColor: C.violetClair }}>
+        <Ionicons name="school-outline" size={24} color={C.violet} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: C.texte }}>Revoir la visite guidée</Text>
+          <Text style={{ fontSize: 14, color: C.secondaire }}>Les 6 choses à savoir, en 1 minute</Text>
+        </View>
+      </Pressable>
       <Pressable onPress={signOut} accessibilityRole="button" style={{ padding: 14, alignItems: 'center' }}>
         <Text style={{ color: C.risque, fontSize: 16, fontWeight: '600' }}>{repo?.mode === 'demo' ? 'Quitter la découverte' : 'Se déconnecter'}</Text>
       </Pressable>

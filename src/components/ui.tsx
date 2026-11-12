@@ -40,14 +40,17 @@ type Icon = keyof typeof Ionicons.glyphMap;
  * Écran défilant. Avec `title`, affiche un grand titre (écrans d'onglets, sans barre d'en-tête)
  * et respecte la barre d'état du téléphone.
  */
-export function Screen({ children, title, subtitle }: { children: ReactNode; title?: string; subtitle?: string }) {
+export function Screen({ children, title, subtitle, help }: { children: ReactNode; title?: string; subtitle?: string; help?: ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
     <ScrollView style={{ backgroundColor: C.fond }} keyboardShouldPersistTaps="handled"
       contentContainerStyle={[s.screen, title ? { paddingTop: insets.top + 12 } : null]}>
       {title ? (
         <View style={{ marginBottom: 4 }}>
-          <Text style={s.bigTitle} accessibilityRole="header">{title}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={s.bigTitle} accessibilityRole="header">{title}</Text>
+            {help}
+          </View>
           {subtitle ? <Text style={s.subtitle}>{subtitle}</Text> : null}
         </View>
       ) : null}
@@ -75,8 +78,8 @@ export function BigAmount({ children, color, compact }: { children: ReactNode; c
 }
 
 /** Carte de synthèse teintée : un libellé, un grand montant, une ligne d'explication. */
-export function SummaryCard({ label, amount, tone = 'lavande', icon, children }: {
-  label: string; amount: string; tone?: 'lavande' | 'menthe' | 'ambre' | 'rouge'; icon?: Icon; children?: ReactNode;
+export function SummaryCard({ label, amount, tone = 'lavande', icon, children, help }: {
+  label: string; amount: string; tone?: 'lavande' | 'menthe' | 'ambre' | 'rouge'; icon?: Icon; children?: ReactNode; help?: ReactNode;
 }) {
   const bg = { lavande: C.violetClair, menthe: C.mentheClair, ambre: C.attentionClair, rouge: C.risqueClair }[tone];
   const fg = tone === 'rouge' ? C.risque : C.texte;
@@ -89,7 +92,10 @@ export function SummaryCard({ label, amount, tone = 'lavande', icon, children }:
           </View>
         ) : null}
         <View style={{ flex: 1 }}>
-          <Text style={[s.summaryLabel, { color: fg }]}>{label}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={[s.summaryLabel, { color: fg, flexShrink: 1 }]}>{label}</Text>
+            {help}
+          </View>
           <BigAmount color={fg} compact={!!icon}>{amount}</BigAmount>
         </View>
       </View>
@@ -99,8 +105,8 @@ export function SummaryCard({ label, amount, tone = 'lavande', icon, children }:
 }
 
 /** Ancienne carte « héros », désormais au style des maquettes (lavande). */
-export function Hero({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
-  return <SummaryCard label={label} amount={value}>{children}</SummaryCard>;
+export function Hero({ label, value, children, help }: { label: string; value: string; children?: ReactNode; help?: ReactNode }) {
+  return <SummaryCard label={label} amount={value} help={help}>{children}</SummaryCard>;
 }
 
 export function HeroText({ children, strong }: { children: ReactNode; strong?: boolean }) {

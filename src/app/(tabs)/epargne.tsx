@@ -1,3 +1,4 @@
+import { Aide } from '@/components/aide';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -34,7 +35,7 @@ export default function Epargne() {
   const capacity = Math.max(0, a.recommended);
 
   return (
-    <Screen title="Épargne">
+    <Screen title="Épargne" help={<Aide k="epargne" size={26} />}>
       {goals.map((g) => <GoalCard key={g.id} goal={g} capacity={capacity} />)}
 
       {pockets.length === 0 ? (

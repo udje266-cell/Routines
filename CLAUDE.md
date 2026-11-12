@@ -61,6 +61,7 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Saisies uniformes (`src/components/inputs.tsx`) : montants au clavier numérique seul (`AmountField`), dates au calendrier (`DateField`), jour du mois en grille (`DayOfMonthField`), choix en ligne « icône · libellé … valeur › » ouvrant une liste (`TileChoice` avec `rowIcon`). Jamais de saisie « AAAA-MM-JJ ».
 - Langage de tous les jours, sans jargon (compte, facture du mois, argent attendu, limite de dépenses). Textes longs sur une ligne (`numberOfLines={1}` + `adjustsFontSizeToFit`).
 - Accueil : calendrier du mois façon Flo (`src/components/month-calendar.tsx` : bande des jours, grille dépliable, points vert/rouge, jour choisi pour planifier une entrée ou une sortie), « Mon plan du mois » (`monthPlan` : entrées, sorties, ce qui reste, combien/quand/comment épargner, en tenant compte d'un manque avant la paie), « Je peux dépenser aujourd'hui » (`safeToSpend`), anneau du jour du mois, factures proches, dernières opérations (modifiables), conseil du banquier. Outils avancés dans l'onglet « Plus ».
+- Aide : visite guidée en 7 cartes à la première ouverture de l’accueil (`VisiteGuidee`, préférence `tourSeen`, « Revoir la visite guidée » dans Plus) et petits « ? » (`Aide`, textes dans `AIDE`) sur les titres d’onglets, les chiffres clés et le plan du mois (`src/components/aide.tsx`).
 - Configuration guidée (`src/app/bienvenue.tsx`) au premier lancement d'un compte vide ; toute opération se modifie ou se supprime depuis `src/app/operation.tsx`.
 
 ## Commandes (vérifiées)

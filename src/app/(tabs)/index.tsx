@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { Aide, VisiteGuidee } from '@/components/aide';
 import { OperationLine } from '@/components/operation-line';
 import { DayPanel, MonthCalendar, PlanCard } from '@/components/month-calendar';
 import { CycleRing } from '@/components/ring';
@@ -14,7 +15,14 @@ import { itemIcon } from '@/lib/categories';
 const F = (n: number) => `${formatFcfa(n).replace(/ F$/, '')} F CFA`;
 
 export default function Aujourdhui() {
-  const { snapshot, status, repo } = useFinance();
+  const { snapshot, status, repo, prefs, prefsLoaded, setPrefs } = useFinance();
+  // Visite guidée à la première ouverture (et quand on la redemande depuis Plus).
+  const [tourClosed, setTourClosed] = useState(false);
+  const tour = prefsLoaded && !prefs.tourSeen && !!snapshot && !tourClosed;
+  const endTour = () => {
+    setTourClosed(true);
+    setPrefs({ ...prefs, tourSeen: true }).catch(() => {}).finally(() => setTourClosed(false));
+  };
   const pay = useWrite('paiement-accueil');
   const today = snapshot?.today ?? '2026-01-01';
   const [selected, setSelected] = useState(today);
@@ -39,7 +47,8 @@ export default function Aujourdhui() {
   const when = (date: string) => (date === today ? 'Aujourd’hui' : date === addDays(today, 1) ? 'Demain' : formatDateCourt(date));
 
   return (
-    <Screen title="Aujourd’hui" subtitle={formatDateFr(today)}>
+    <Screen title="Aujourd’hui" subtitle={formatDateFr(today)} help={<Aide k="calendrier" size={26} />}>
+      <VisiteGuidee visible={tour} onClose={endTour} />
       {repo?.mode === 'demo' ? <Card tone="attention"><Status tone="attention">Exemple avec de faux chiffres : rien n’est enregistré.</Status></Card> : null}
 
       {/* Calendrier du mois, comme Flo : toucher un jour pour voir ou planifier une entrée ou une sortie. */}
@@ -47,13 +56,13 @@ export default function Aujourdhui() {
       <CycleRing day={day} length={length} size={124} />
 
       {short ? (
-        <SummaryCard label="Il vous manque" amount={F(-sts.afterBills)} tone="rouge" icon="warning-outline">
+        <SummaryCard label="Il vous manque" amount={F(-sts.afterBills)} tone="rouge" icon="warning-outline" help={<Aide k="manque" />}>
           <Text style={{ fontSize: 15, color: C.texte }}>
             pour payer vos factures d’ici le {formatDateCourt(sts.until)}. Évitez les dépenses qui peuvent attendre.
           </Text>
         </SummaryCard>
       ) : (
-        <SummaryCard label="Je peux dépenser aujourd’hui" amount={F(sts.perDay)}>
+        <SummaryCard label="Je peux dépenser aujourd’hui" amount={F(sts.perDay)} help={<Aide k="peutDepenser" />}>
           <View style={{ height: 1, backgroundColor: 'rgba(30,24,59,0.12)' }} />
           <Text style={{ fontSize: 15, color: C.texte }}>
             Factures déjà mises de côté · {sts.nextIncome ? `jusqu’à la paie du ${formatDateCourt(sts.nextIncome.date)}` : 'jusqu’à la fin du mois'}
