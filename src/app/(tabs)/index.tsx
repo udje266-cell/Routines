@@ -5,7 +5,7 @@ import { Button, Card, Hero, HeroText, Label, Screen, Status, Title } from '@/co
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
 import {
-  addDays, categoryStatus, currentCycle, cycleDay, forecast, formatDateFr, formatFcfa, incomeStats, marginUntilNextIncome, spendingPace,
+  addDays, bankerSummary, categoryStatus, currentCycle, cycleDay, forecast, formatDateFr, formatFcfa, incomeStats, marginUntilNextIncome, spendingPace,
   upcomingEssentials, type Snapshot,
 } from '@/domain';
 
@@ -73,6 +73,19 @@ export default function Aujourdhui() {
               {action.href ? <Button variant="secondaire" label="Voir" onPress={() => router.push(action.href!)} /> : null}
             </Card>
           ) : null}
+
+          {(() => {
+            const b = bankerSummary(snapshot);
+            return (
+              <Card tone={b.top?.priority === 1 ? 'risque' : b.top?.priority === 2 ? 'attention' : 'ok'}>
+                <Label muted>Mon banquier · santé financière {b.health.score} / 100 ({b.health.grade})</Label>
+                {b.top ? <Status tone={b.top.priority === 1 ? 'risque' : b.top.priority === 2 ? 'attention' : 'ok'}>{b.top.title}</Status>
+                  : <Status tone="ok">Rien d’urgent : vos finances sont sous contrôle.</Status>}
+                {b.top ? <Label>{b.top.detail}</Label> : null}
+                <Button variant="secondaire" label={`Mon analyste (${b.count} conseil${b.count > 1 ? 's' : ''})`} onPress={() => router.push('/analyste')} />
+              </Card>
+            );
+          })()}
 
           <Hero label={`Marge ${margin.nextIncome ? `jusqu’au ${formatDateFr(margin.nextIncome.date)}` : 'sur 60 jours'}`} value={formatFcfa(margin.amount)}>
             <HeroText>Disponible aujourd’hui : {formatFcfa(total)}</HeroText>

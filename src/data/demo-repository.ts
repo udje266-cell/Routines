@@ -55,6 +55,25 @@ export class DemoRepository implements FinanceRepository {
     const cats = ['Alimentation', 'Transport', 'Sorties', 'Alimentation', 'Sorties', 'Transport'];
     [3_000, 1_500, 12_000, 2_000, 6_500, 4_000, 15_000, 2_500, 8_000, 3_500, 25_000, 1_000].forEach((a, i) =>
       this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: a, date: day(i), label: cats[i % 6], category: cats[i % 6] }));
+    // Deux mois précédents (historique seulement : les soldes actuels ne changent pas), pour que
+    // l'analyste ait des tendances à comparer : sorties en forte hausse ce mois-ci, épargne régulière avant.
+    for (const back of [2, 1]) {
+      const [y, m] = start.split('-').map(Number);
+      const k = m - 1 - back;
+      const first = `${y + Math.floor(k / 12)}-${String(((k % 12) + 12) % 12 + 1).padStart(2, '0')}-01`;
+      const at = (n: number) => addDays(first, n);
+      this.ops.push({ id: this.id(), kind: 'rentree', walletId: 'demo-wave', amount: 120_000, date: first, label: 'Salaire', incomeType: 'principal' });
+      this.ops.push({ id: this.id(), kind: 'transfert', walletId: 'demo-wave', toWalletId: 'demo-ep', amount: 10_000, date: at(1), label: 'Épargne' });
+      this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-wave', amount: 25_000, date: at(12), label: 'Loyer', category: 'Logement' });
+      for (let i = 0; i < 6; i++)
+        this.ops.push({ id: this.id(), kind: 'rentree', walletId: 'demo-esp', amount: 6_000, date: at(1 + i * 4), label: 'Petite somme', incomeType: 'petite' });
+      for (let i = 0; i < 12; i++)
+        this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: 2_000, date: at(i * 2), label: 'Alimentation', category: 'Alimentation' });
+      for (let i = 0; i < 8; i++)
+        this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: 1_000, date: at(i * 3), label: 'Transport', category: 'Transport' });
+      this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: 6_000, date: at(5), label: 'Sorties', category: 'Sorties' });
+      this.ops.push({ id: this.id(), kind: 'sortie', walletId: 'demo-esp', amount: 6_000, date: at(19), label: 'Sorties', category: 'Sorties' });
+    }
     this.intents.push({ id: this.id(), amount: 18_000, category: 'Habillement', walletId: 'demo-wave', date: addDays(today, 1), status: 'en_pause', createdOn: today });
     // Dépenses obligatoires de chaque mois (montants fictifs, ordres de grandeur d'Abidjan).
     const rule = (id: string, label: string, amount: number, day: number, category: string): RecurringRule => ({
@@ -79,7 +98,7 @@ export class DemoRepository implements FinanceRepository {
     ];
     this.goals = [{
       id: 'demo-fonds', name: 'Fonds d’urgence', target: 255_000, date: addDays(today, 365), pocketWalletId: 'demo-ep',
-      fromWalletId: 'demo-wave', plannedDay: 28, status: 'actif', movements: [{ id: 'demo-m0', amount: 15_000, date: addDays(start, -5) }],
+      fromWalletId: 'demo-wave', plannedDay: 28, status: 'actif', movements: [{ id: 'demo-m0', amount: 15_000, date: addDays(start, -40) }],
     }];
   }
 

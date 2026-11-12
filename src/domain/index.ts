@@ -13,3 +13,6 @@ export * from "./revenus";
 export * from "./cycle";
 export * from "./rappels";
 export * from "./credit";
+export * from "./analyse";
+export * from "./conseiller";
+export * from "./placements";

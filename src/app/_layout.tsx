@@ -28,6 +28,7 @@ export default function RootLayout() {
         <Stack.Screen name="ajouter" options={{ title: 'Ajouter', presentation: 'modal' }} />
         <Stack.Screen name="mon-budget" options={{ title: 'Mon budget' }} />
         <Stack.Screen name="depenses-mensuelles" options={{ title: 'Dépenses du mois' }} />
+        <Stack.Screen name="analyste" options={{ title: 'Mon analyste' }} />
         <Stack.Screen name="credits" options={{ title: 'Crédits' }} />
         <Stack.Screen name="reglages" options={{ title: 'Réglages' }} />
         <Stack.Screen name="historique" options={{ title: 'Historique' }} />

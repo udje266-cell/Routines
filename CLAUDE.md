@@ -34,6 +34,12 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Serveur : table `loans` (conditions figées après une échéance payée), `record_loan_operation` (0 = déblocage net des frais, n = échéance n unique, null = remboursement anticipé).
 - Les opérations de crédit ne sont ni des revenus ni des dépenses du quotidien ; les échéances non payées entrent dans la prévision.
 
+## Analyste et banquier personnel
+- `src/domain/analyse.ts` : patrimoine net, historique mensuel, tendances par catégorie comparées **à la même date** des mois précédents, dépenses inhabituelles (> 2,5 × la médiane de la catégorie), ratios, score de santé sur 100 (épargne, endettement, fonds d'urgence, charges fixes, prévisibilité des rentrées ; 20 points chacun).
+- `src/domain/conseiller.ts` : recommandations chiffrées, priorité d'un banquier prudent : payer ce qui est dû → fonds d'urgence → dettes chères → maîtrise des dépenses → placements (jamais de placement conseillé tant qu'un point urgent existe).
+- `src/domain/placements.ts` : livret (≈ 3,5 %), DAT (≈ 5 %), titres publics ivoiriens (≈ 6,6 % à 3 ans) ; repères indicatifs datés et sourcés, information pédagogique.
+- Écran `src/app/analyste.tsx`, carte « Mon banquier » sur Aujourd'hui.
+
 ## Sécurité et confidentialité
 - Récupération d'accès par code à 6 chiffres saisi dans l'application (`src/app/recuperation.tsx`, modèle `supabase/templates/recuperation.html`) : aucun lien d'URL interceptable.
 - Verrou facultatif (`LockGate`) : écran neutre tant que les préférences ne sont pas lues, FLAG_SECURE (pas de capture ni de vignette des récentes) quand le verrou est actif.
