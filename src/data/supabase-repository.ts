@@ -1,8 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { CivilDate, PlannedItem, Wallet } from '@/domain';
+import { addDays, type CivilDate, type Debt, type Operation, type PlannedItem, type SavingsGoal, type Wallet } from '@/domain';
 
-import { ConnectionRequiredError, type FinanceRepository, type NewIntent, type NewOperation, type NewPlanned, type NewWallet } from './repository';
+import {
+  ConnectionRequiredError, RefusedError, type DebtPaymentInput, type FinanceRepository, type GoalMovementInput, type NewDebt,
+  type NewGoal, type NewIntent, type NewOperation, type NewPlanned, type NewWallet,
+} from './repository';
+
+// Lignes brutes de PostgREST, converties explicitement vers les types du domaine.
+type Row = Record<string, any>;
 
 function isNetworkError(e: unknown): boolean {
   const msg = String((e as { message?: string })?.message ?? e);
@@ -18,6 +24,8 @@ async function run<T>(p: PromiseLike<{ data: T; error: unknown }>): Promise<T> {
   }
   if (res.error) {
     if (isNetworkError(res.error)) throw new ConnectionRequiredError(res.error);
+    const err = res.error as { code?: string; message?: string };
+    if (err.code === '22023' || err.code === 'P0002') throw new RefusedError(err.message ?? 'Refusé');
     throw res.error;
   }
   return res.data;
@@ -28,11 +36,21 @@ export class SupabaseRepository implements FinanceRepository {
   constructor(private db: SupabaseClient) {}
 
   async loadSnapshot(today: CivilDate) {
-    const [wallets, balances, planned] = await Promise.all([
+    const from = addDays(today, -120);
+    const [wallets, balances, planned, ops, debts, goals] = await Promise.all([
       run(this.db.from('wallets').select('id,name,kind,everyday').order('created_at')),
       run(this.db.from('wallet_balances').select('wallet_id,balance')),
       run(this.db.from('planned_items').select('*').eq('status', 'prevue').order('due_date')),
+      // historique récent + tous les mouvements d'objectifs (pour la progression)
+      run(this.db.from('operations').select('*').or(`op_date.gte.${from},goal_id.not.is.null`).order('op_date')),
+      run(this.db.from('debts').select('*, debt_payments(id, amount, paid_on)').order('created_at')),
+      run(this.db.from('goals').select('*').order('created_at')),
     ]);
+    const operations = (ops as Row[]).map((o): Operation => ({
+      id: o.id, kind: o.kind, walletId: o.wallet_id, toWalletId: o.to_wallet_id ?? undefined, amount: Number(o.amount),
+      fee: Number(o.fee), date: o.op_date, label: o.label, category: o.category ?? undefined,
+      incomeType: o.income_type ?? undefined, debtId: o.debt_id ?? undefined, goalId: o.goal_id ?? undefined,
+    }));
     const bal = new Map((balances as { wallet_id: string; balance: number }[]).map((b) => [b.wallet_id, Number(b.balance)]));
     return {
       today,
@@ -44,6 +62,19 @@ export class SupabaseRepository implements FinanceRepository {
           fundedByIncomeId: p.funded_by_income_id ?? undefined, category: p.category ?? undefined, source: p.source ?? undefined,
         }),
       ),
+      operations: operations.filter((o) => o.date >= from),
+      debts: (debts as Row[]).map((d): Debt => ({
+        id: d.id, direction: d.direction, person: d.person, initial: Number(d.initial_amount), dueDate: d.due_date ?? undefined,
+        walletId: d.wallet_id ?? undefined, certainty: d.certainty ?? undefined, status: d.status,
+        payments: (d.debt_payments as Row[]).map((p) => ({ id: p.id, amount: Number(p.amount), date: p.paid_on })),
+      })),
+      goals: (goals as Row[]).map((g): SavingsGoal => ({
+        id: g.id, name: g.name, target: Number(g.target_amount), date: g.target_date, pocketWalletId: g.pocket_wallet_id,
+        fromWalletId: g.from_wallet_id ?? undefined, plannedDay: g.planned_day, status: g.status,
+        movements: operations.filter((o) => o.goalId === g.id).map((o) => ({
+          id: o.id, date: o.date, amount: o.toWalletId === g.pocket_wallet_id ? o.amount : -o.amount,
+        })),
+      })),
     };
   }
 
@@ -67,6 +98,7 @@ export class SupabaseRepository implements FinanceRepository {
         p_client_key: op.clientKey, p_kind: op.kind, p_wallet_id: op.walletId, p_amount: op.amount,
         p_op_date: op.date, p_label: op.label, p_category: op.category ?? null,
         p_to_wallet_id: op.toWalletId ?? null, p_fee: op.fee ?? 0, p_planned_item_id: op.plannedItemId ?? null,
+        p_income_type: op.kind === 'rentree' ? op.incomeType ?? 'principal' : null,
       }),
     );
   }
@@ -78,5 +110,39 @@ export class SupabaseRepository implements FinanceRepository {
         { onConflict: 'user_id,client_key', ignoreDuplicates: true },
       ),
     );
+  }
+
+  async addDebt(d: NewDebt) {
+    await run(this.db.from('debts').insert({
+      direction: d.direction, person: d.person, initial_amount: d.initial, due_date: d.dueDate ?? null, wallet_id: d.walletId ?? null,
+      certainty: d.direction === 'on_me_doit' ? d.certainty ?? 'incertaine' : null,
+    }));
+  }
+
+  async payDebt(p: DebtPaymentInput) {
+    await run(this.db.rpc('record_debt_payment', {
+      p_client_key: p.clientKey, p_debt_id: p.debtId, p_amount: p.amount, p_wallet_id: p.walletId, p_date: p.date,
+    }));
+  }
+
+  async cancelDebtPayment(paymentId: string) {
+    await run(this.db.rpc('cancel_debt_payment', { p_payment_id: paymentId }));
+  }
+
+  async setDebtStatus(debtId: string, status: 'annulee' | 'remise') {
+    await run(this.db.from('debts').update({ status }).eq('id', debtId));
+  }
+
+  async addGoal(g: NewGoal) {
+    await run(this.db.from('goals').insert({
+      name: g.name, target_amount: g.target, target_date: g.date, pocket_wallet_id: g.pocketWalletId,
+      from_wallet_id: g.fromWalletId ?? null, planned_day: g.plannedDay,
+    }));
+  }
+
+  async moveGoal(m: GoalMovementInput) {
+    await run(this.db.rpc('record_goal_movement', {
+      p_client_key: m.clientKey, p_goal_id: m.goalId, p_wallet_id: m.walletId, p_amount: m.amount, p_date: m.date, p_withdraw: m.withdraw,
+    }));
   }
 }

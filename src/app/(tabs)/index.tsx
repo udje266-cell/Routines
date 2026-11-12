@@ -3,7 +3,9 @@ import { View } from 'react-native';
 
 import { Button, Card, Label, Screen, Status, Title } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
-import { forecast, formatDateFr, formatFcfa, marginUntilNextIncome } from '@/domain';
+import {
+  endOfMonth, forecast, formatDateFr, formatFcfa, incomeStats, marginUntilNextIncome, spendingPace, startOfMonth, upcomingEssentials,
+} from '@/domain';
 
 export default function Aujourdhui() {
   const { snapshot, status, repo, signOut } = useFinance();
@@ -21,6 +23,14 @@ export default function Aujourdhui() {
   const total = everyday.reduce((s, w) => s + w.balance, 0);
   const margin = marginUntilNextIncome(snapshot);
   const upcoming = forecast(snapshot).events.slice(0, 5);
+  // Action du jour : rythme des dépenses du mois et petites sommes reçues.
+  const cycleStart = startOfMonth(snapshot.today);
+  const cycleEnd = endOfMonth(snapshot.today);
+  const stats = incomeStats(snapshot.operations ?? [], snapshot.today, cycleStart);
+  const plan = Math.max(0, stats.mainMonthly - upcomingEssentials(snapshot));
+  const pace = stats.cycleSpends.length && plan
+    ? spendingPace({ today: snapshot.today, cycleStart, cycleEnd, plannedSpend: plan, spends: stats.cycleSpends, extraIncomes: stats.cycleSmallIncomes })
+    : null;
 
   return (
     <Screen>
@@ -44,6 +54,18 @@ export default function Aujourdhui() {
             <Label muted>Disponible aujourd’hui : {formatFcfa(total)}</Label>
           </Card>
 
+          {pace && pace.status !== 'dans_le_plan' ? (
+            <Card tone={pace.status === 'derapage' ? 'risque' : 'attention'}>
+              <Status tone={pace.status === 'derapage' ? 'risque' : 'attention'}>
+                À ce rythme, {formatFcfa(pace.projectedSpend)} dépensés ce mois ({formatFcfa(pace.overrun)} de trop).
+              </Status>
+              <Label>Budget du jour : {formatFcfa(pace.dailyAllowance)} · {pace.smallIncome.count} petites sommes reçues ({formatFcfa(pace.smallIncome.total)}).</Label>
+            </Card>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><Button variant="secondaire" label="J’ai dépensé" onPress={() => router.push({ pathname: '/ajouter', params: { type: 'depense' } })} /></View>
+            <View style={{ flex: 1 }}><Button variant="secondaire" label="J’ai reçu" onPress={() => router.push({ pathname: '/ajouter', params: { type: 'revenu' } })} /></View>
+          </View>
           <Button label="Tester un achat" hint="Vérifie si un achat compromet une échéance" onPress={() => router.push('/tester-achat')} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Button variant="secondaire" label="Ajouter" onPress={() => router.push('/ajouter')} /></View>

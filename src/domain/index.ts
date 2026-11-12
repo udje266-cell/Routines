@@ -7,3 +7,6 @@ export * from './simulate';
 export * from "./reference-abidjan";
 export * from "./epargne";
 export * from "./rythme";
+export * from "./dettes";
+export * from "./objectifs";
+export * from "./revenus";

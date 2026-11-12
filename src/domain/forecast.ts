@@ -1,6 +1,13 @@
 import { addDays, type CivilDate } from './dates';
 import type { Francs } from './money';
+import { debtsToPlanned } from './dettes';
+import { goalsToPlanned } from './objectifs';
 import type { ForecastView, PlannedItem, Snapshot, Wallet } from './types';
+
+/** Toutes les échéances : saisies, dettes datées et versements d'épargne prévus. */
+export function allPlanned(snap: Snapshot): PlannedItem[] {
+  return [...snap.planned, ...debtsToPlanned(snap.debts ?? []), ...goalsToPlanned(snap.goals ?? [], snap.today)];
+}
 
 export const HORIZON_DAYS = 60;
 
@@ -51,7 +58,7 @@ export function forecast(
   const excludedIncomes: PlannedItem[] = [];
   const kept: { item: PlannedItem; date: CivilDate; overdue: boolean; idx: number }[] = [];
 
-  [...snap.planned, ...extra].forEach((item, idx) => {
+  [...allPlanned(snap), ...extra].forEach((item, idx) => {
     if (item.kind === 'rentree') {
       if (item.date < from) return void lateIncomes.push(item);
       if (view === 'prudente' || item.certainty === 'incertaine') return void excludedIncomes.push(item);
@@ -128,4 +135,12 @@ export function marginUntilNextIncome(snap: Snapshot): Margin {
     nextIncome: idx === -1 ? null : fc.events[idx].item,
     missingIncomeDate: idx === -1,
   };
+}
+
+/** Charges des 30 prochains jours (sorties prévues hors épargne) : estimation des charges essentielles du mois. */
+export function upcomingEssentials(snap: Snapshot): Francs {
+  const end = addDays(snap.today, 29);
+  return allPlanned(snap)
+    .filter((p) => p.kind === 'sortie' && p.source !== 'achat' && p.date <= end)
+    .reduce((s, p) => s + p.amount, 0);
 }

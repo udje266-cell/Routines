@@ -6,7 +6,9 @@
 // Lancer : npm run test:integration  (après `npx supabase start`)
 import { createClient } from '@supabase/supabase-js';
 
-import { simulatePurchase } from '@/domain';
+import { goalSchedule, incomeStats, progressOf, remainingOf, simulatePurchase } from '@/domain';
+
+import { RefusedError } from '../repository';
 
 import { SupabaseRepository } from '../supabase-repository';
 
@@ -45,5 +47,43 @@ run('Parcours 1 — portefeuille, loyer, achat testé (Supabase local)', () => {
 
     const other = new SupabaseRepository(await newUser());
     expect((await other.loadSnapshot('2026-11-12')).wallets).toHaveLength(0);
+  });
+
+  it('dettes, épargne et revenus typés', async () => {
+    const repo = new SupabaseRepository(await newUser());
+    const today = '2026-11-12';
+    await repo.addWallet({ name: 'Wave', kind: 'wave', everyday: true, openingBalance: 50_000 });
+    await repo.addWallet({ name: 'Épargne', kind: 'epargne', everyday: false, openingBalance: 0 });
+    let snap = await repo.loadSnapshot(today);
+    const [wave, poche] = snap.wallets;
+
+    // Revenus typés
+    await repo.recordOperation({ clientKey: 'revenu-principal-1', kind: 'rentree', walletId: wave.id, amount: 120_000, date: '2026-11-01', label: 'Salaire', incomeType: 'principal' });
+    await repo.recordOperation({ clientKey: 'revenu-petite-0001', kind: 'rentree', walletId: wave.id, amount: 5_000, date: '2026-11-03', label: 'Coupure', incomeType: 'petite' });
+    snap = await repo.loadSnapshot(today);
+    expect(incomeStats(snap.operations!, today, '2026-11-01')).toMatchObject({ cycleMain: 120_000, cycleSmallIncomes: [{ amount: 5_000 }] });
+
+    // Dette partielle puis annulation
+    await repo.addDebt({ direction: 'je_dois', person: 'Koffi', initial: 20_000 });
+    let debt = (await repo.loadSnapshot(today)).debts![0];
+    const pay = { clientKey: 'remb-koffi-00001', debtId: debt.id, amount: 5_000, walletId: wave.id, date: today };
+    await repo.payDebt(pay);
+    await repo.payDebt(pay);
+    debt = (await repo.loadSnapshot(today)).debts![0];
+    expect(remainingOf(debt)).toBe(15_000);
+    await expect(repo.payDebt({ ...pay, clientKey: 'remb-koffi-00002', amount: 15_001 })).rejects.toBeInstanceOf(RefusedError);
+    await repo.cancelDebtPayment(debt.payments[0].id);
+    expect(remainingOf((await repo.loadSnapshot(today)).debts![0])).toBe(20_000);
+
+    // Objectif : versement, retrait, échéancier
+    await repo.addGoal({ name: 'Fonds d’urgence', target: 100_000, date: '2027-03-31', pocketWalletId: poche.id, fromWalletId: wave.id, plannedDay: 28 });
+    let goal = (await repo.loadSnapshot(today)).goals![0];
+    await repo.moveGoal({ clientKey: 'versement-00001', goalId: goal.id, walletId: wave.id, amount: 10_000, date: today, withdraw: false });
+    await repo.moveGoal({ clientKey: 'retrait-0000001', goalId: goal.id, walletId: wave.id, amount: 4_000, date: today, withdraw: true });
+    snap = await repo.loadSnapshot(today);
+    goal = snap.goals![0];
+    expect(progressOf(goal)).toBe(6_000);
+    expect(snap.wallets.find((w) => w.id === poche.id)!.balance).toBe(6_000);
+    expect(goalSchedule(goal, today).perInstallment).toBe(18_800);
   });
 });

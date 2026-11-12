@@ -41,3 +41,12 @@ export function formatDateFr(d: CivilDate): string {
   const [y, m, day] = d.split('-').map(Number);
   return `${day} ${MOIS[m - 1]} ${y}`;
 }
+
+export function startOfMonth(d: CivilDate): CivilDate {
+  return `${d.slice(0, 8)}01`;
+}
+
+export function endOfMonth(d: CivilDate): CivilDate {
+  const [y, m] = d.split('-').map(Number);
+  return monthlyDate(y, m, 31);
+}

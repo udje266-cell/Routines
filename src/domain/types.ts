@@ -1,5 +1,8 @@
 import type { CivilDate } from './dates';
+import type { Debt } from './dettes';
 import type { Francs } from './money';
+import type { SavingsGoal } from './objectifs';
+import type { Operation } from './revenus';
 
 export type WalletKind = 'especes' | 'wave' | 'orange_money' | 'banque' | 'epargne';
 
@@ -57,4 +60,8 @@ export interface Snapshot {
   planned: PlannedItem[];
   budgets?: CategoryBudget[];
   undatedDebts?: UndatedDebt[];
+  /** Historique réel récent. */
+  operations?: Operation[];
+  debts?: Debt[];
+  goals?: SavingsGoal[];
 }

@@ -1,4 +1,4 @@
-import type { CivilDate, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
+import type { Certainty, CivilDate, DebtDirection, Francs, PlannedItem, Snapshot, WalletKind } from '@/domain';
 
 export interface NewWallet {
   name: string;
@@ -21,6 +21,42 @@ export interface NewOperation {
   label: string;
   category?: string;
   plannedItemId?: string;
+  incomeType?: 'principal' | 'petite';
+}
+
+export interface NewDebt {
+  direction: DebtDirection;
+  person: string;
+  initial: Francs;
+  dueDate?: CivilDate;
+  walletId?: string;
+  certainty?: Certainty;
+}
+
+export interface NewGoal {
+  name: string;
+  target: Francs;
+  date: CivilDate;
+  pocketWalletId: string;
+  fromWalletId?: string;
+  plannedDay: number;
+}
+
+export interface DebtPaymentInput {
+  clientKey: string;
+  debtId: string;
+  amount: Francs;
+  walletId: string;
+  date: CivilDate;
+}
+
+export interface GoalMovementInput {
+  clientKey: string;
+  goalId: string;
+  walletId: string;
+  amount: Francs;
+  date: CivilDate;
+  withdraw: boolean;
 }
 
 export interface NewIntent {
@@ -41,6 +77,9 @@ export class ConnectionRequiredError extends Error {
   }
 }
 
+/** Écriture refusée par une règle métier (ex. paiement supérieur au reste) : message affichable. */
+export class RefusedError extends Error {}
+
 export interface FinanceRepository {
   readonly mode: 'demo' | 'compte';
   loadSnapshot(today: CivilDate): Promise<Snapshot>;
@@ -48,4 +87,12 @@ export interface FinanceRepository {
   addPlanned(p: NewPlanned): Promise<void>;
   recordOperation(op: NewOperation): Promise<void>;
   saveIntent(i: NewIntent): Promise<void>;
+  addDebt(d: NewDebt): Promise<void>;
+  /** Remboursement atomique : une opération + un règlement ; refuse un montant supérieur au reste. */
+  payDebt(p: DebtPaymentInput): Promise<void>;
+  cancelDebtPayment(paymentId: string): Promise<void>;
+  setDebtStatus(debtId: string, status: 'annulee' | 'remise'): Promise<void>;
+  addGoal(g: NewGoal): Promise<void>;
+  /** Versement ou retrait réel : transfert atomique entre le quotidien et la poche d'épargne. */
+  moveGoal(m: GoalMovementInput): Promise<void>;
 }

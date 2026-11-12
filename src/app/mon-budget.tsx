@@ -4,7 +4,8 @@ import { View } from 'react-native';
 import { Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import {
-  addDays, adviseSavings, formatDateFr, formatFcfa, parseFcfa, REPERES_ABIDJAN, simulateScenario, spendingPace,
+  adviseSavings, endOfMonth, formatDateFr, formatFcfa, incomeStats, parseFcfa, progressOf, REPERES_ABIDJAN, simulateScenario,
+  spendingPace, startOfMonth, upcomingEssentials,
 } from '@/domain';
 
 const n = (t: string) => parseFcfa(t) ?? 0;
@@ -12,34 +13,35 @@ const n = (t: string) => parseFcfa(t) ?? 0;
 export default function MonBudget() {
   const { snapshot } = useFinance();
   const today = snapshot?.today ?? '2026-11-12';
-  const cycleStart = `${today.slice(0, 8)}01`;
-  const cycleEnd = addDays(`${addDays(cycleStart, 32).slice(0, 8)}01`, -1);
+  const cycleStart = startOfMonth(today);
+  const cycleEnd = endOfMonth(today);
 
-  // Hypothèses saisies (exemple : 120 000 F de salaire, ~230 000 F de petites rentrées par mois).
-  const [income, setIncome] = useState('120 000');
-  const [small, setSmall] = useState('230 000');
-  const [essentials, setEssentials] = useState('85 000');
-  const [plannedSpend, setPlannedSpend] = useState('120 000');
-  const [spentSoFar, setSpentSoFar] = useState('');
-  const [smallCount, setSmallCount] = useState('');
+  // Valeurs réelles tirées des opérations enregistrées ; modifiables pour simuler d'autres hypothèses.
+  const stats = useMemo(() => incomeStats(snapshot?.operations ?? [], today, cycleStart), [snapshot, today, cycleStart]);
+  const realEssentials = snapshot ? upcomingEssentials(snapshot) : 0;
+  const [income, setIncome] = useState(String(stats.mainMonthly || ''));
+  const [small, setSmall] = useState(String(stats.smallMonthly || ''));
+  const [essentials, setEssentials] = useState(String(realEssentials || ''));
+  const [plannedSpend, setPlannedSpend] = useState(String(Math.max(0, stats.mainMonthly - realEssentials) || ''));
   const [months, setMonths] = useState<'6' | '12' | '24'>('12');
   const [rate, setRate] = useState('20');
   const [daily, setDaily] = useState('5 000');
 
   const advice = useMemo(
-    () => adviseSavings({ today, income: n(income), smallIncome: n(small), essentials: n(essentials), goals: [] }),
-    [today, income, small, essentials],
+    () => adviseSavings({
+      today, income: n(income), smallIncome: n(small), essentials: n(essentials),
+      goals: (snapshot?.goals ?? []).filter((g) => g.status === 'actif')
+        .map((g) => ({ id: g.id, name: g.name, target: g.target, saved: progressOf(g), date: g.date })),
+    }),
+    [snapshot, today, income, small, essentials],
   );
 
   const pace = useMemo(() => {
-    const spent = n(spentSoFar);
-    if (!spent) return null;
+    if (!stats.cycleSpends.length) return null;
     return spendingPace({
-      today, cycleStart, cycleEnd, plannedSpend: n(plannedSpend),
-      spends: [{ date: today, amount: spent }],
-      extraIncomes: Array.from({ length: n(smallCount) }, () => ({ date: today, amount: 5_000 })),
+      today, cycleStart, cycleEnd, plannedSpend: n(plannedSpend), spends: stats.cycleSpends, extraIncomes: stats.cycleSmallIncomes,
     });
-  }, [today, cycleStart, cycleEnd, plannedSpend, spentSoFar, smallCount]);
+  }, [today, cycleStart, cycleEnd, plannedSpend, stats]);
 
   const scenario = useMemo(
     () => simulateScenario({
@@ -55,6 +57,7 @@ export default function MonBudget() {
     <Screen>
       <Title>Mon budget</Title>
       <Card>
+        <Label muted>Prérempli avec la moyenne de vos 3 derniers mois et les charges prévues sur 30 jours. Modifiez pour simuler.</Label>
         <Field label="Revenu principal par mois (F)" value={income} onChangeText={setIncome} keyboardType="number-pad" />
         <Field label="Petites rentrées par mois, estimation (F)" value={small} onChangeText={setSmall} keyboardType="number-pad" />
         <Field label="Charges essentielles par mois (loyer, factures, transport, repas)" value={essentials} onChangeText={setEssentials} keyboardType="number-pad" />
@@ -70,7 +73,7 @@ export default function MonBudget() {
         <Title>{formatFcfa(advice.recommended)} / mois</Title>
         <Label>Minimum à tenir : {formatFcfa(advice.minimum)} · reste à vivre : {formatFcfa(advice.leftToLive)}</Label>
         <Status tone="attention">
-          Règle des petites coupures : mets {Math.round(advice.smallIncomeRule.rate * 100)} % de côté dès réception, soit ~{formatFcfa(advice.smallIncomeRule.monthly)} / mois.
+          Règle des petites coupures : mettez {Math.round(advice.smallIncomeRule.rate * 100)} % de côté dès réception, soit ~{formatFcfa(advice.smallIncomeRule.monthly)} / mois.
         </Status>
         {advice.plans.map((p) => (
           <Label key={p.goal.id}>{p.goal.name} : {formatFcfa(p.goal.target)} avant le {formatDateFr(p.suggestedDate ?? p.goal.date)} → {formatFcfa(p.monthly)} / mois</Label>
@@ -81,17 +84,17 @@ export default function MonBudget() {
       <Card tone={pace?.status === 'derapage' ? 'risque' : pace?.status === 'attention' ? 'attention' : undefined}>
         <Label muted>Rythme du mois ({formatDateFr(cycleStart)} → {formatDateFr(cycleEnd)})</Label>
         <Field label="Enveloppe du quotidien pour le mois (F)" value={plannedSpend} onChangeText={setPlannedSpend} keyboardType="number-pad" />
-        <Field label="Déjà dépensé ce mois (F)" value={spentSoFar} onChangeText={setSpentSoFar} keyboardType="number-pad" />
-        <Field label="Nombre de petites sommes reçues ce mois" value={smallCount} onChangeText={setSmallCount} keyboardType="number-pad" />
         {pace ? (
           <>
+            <Label>Dépensé ce mois : {formatFcfa(pace.spent)} · revenu principal reçu : {formatFcfa(stats.cycleMain)}</Label>
+            <Label>{pace.smallIncome.count} petites sommes reçues ce mois, soit {formatFcfa(pace.smallIncome.total)} au total.</Label>
             <Status tone={pace.status === 'dans_le_plan' ? 'ok' : pace.status === 'attention' ? 'attention' : 'risque'}>
               À ce rythme : {formatFcfa(pace.projectedSpend)} dépensés en fin de mois
               {pace.overrun ? `, soit ${formatFcfa(pace.overrun)} au-delà de l’enveloppe.` : '.'}
             </Status>
             <Label>Budget du jour jusqu’à la fin du mois : {formatFcfa(pace.dailyAllowance)}</Label>
           </>
-        ) : <Label muted>Indique ce que tu as déjà dépensé pour voir ta projection de fin de mois.</Label>}
+        ) : <Label muted>Enregistrez vos dépenses avec « Ajouter » pour voir votre projection de fin de mois.</Label>}
       </Card>
 
       <Card>

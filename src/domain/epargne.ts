@@ -86,9 +86,9 @@ export function adviseSavings(input: SavingsInput): SavingsAdvice {
   const minimum = Math.min(ceil(total * 0.1), capacity);
   let recommended = Math.min(Math.max(target20, goalsNeed), capacity);
 
-  if (capacity === 0) notes.push('Les charges essentielles absorbent tout le revenu : réduis-les avant d’épargner.');
+  if (capacity === 0) notes.push('Les charges essentielles absorbent tout le revenu : réduisez-les avant d’épargner.');
   else if (goalsNeed > capacity) {
-    notes.push('Tes objectifs demandent plus que ta capacité : dates repoussées proposées.');
+    notes.push('Vos objectifs demandent plus que votre capacité : dates repoussées proposées.');
     // Répartit la capacité au prorata et calcule une date réaliste pour chaque objectif.
     for (const p of plans) {
       const share = Math.max(1, Math.floor((capacity * p.monthly) / goalsNeed));
@@ -98,7 +98,7 @@ export function adviseSavings(input: SavingsInput): SavingsAdvice {
     }
     recommended = capacity;
   }
-  if (recommended < ceil(total * 0.1) && capacity > 0) notes.push('Moins de 10 % du revenu : épargne fragile, revois tes charges.');
+  if (recommended < ceil(total * 0.1) && capacity > 0) notes.push('Moins de 10 % du revenu : épargne fragile, revoyez vos charges.');
 
   const rate = 0.3;
   return {

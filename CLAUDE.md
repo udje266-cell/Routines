@@ -8,8 +8,8 @@ Au backlog, hors V1 : synchronisation multiappareil, budgets partagés, import a
 Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne recommandée selon le revenu et les objectifs (fonds d'urgence ajouté par défaut), suivi des petites rentrées ou « petites coupures » avec rythme de dépense et budget du jour, simulateur de scénarios sur plusieurs mois.
 
 ## Structure
-- `src/domain/` : moteur pur, sans React, réseau ni horloge. Contient `forecast` (60 jours, vues standard et prudente), `simulatePurchase`, `recurrence`, `adviseSavings`, `spendingPace`, `simulateScenario` et `reference-abidjan`.
-- `src/data/` : dépôts (`FinanceRepository`, `SupabaseRepository`, `DemoRepository`), contexte React et clés d'opération.
+- `src/domain/` : moteur pur, sans React, réseau ni horloge. Contient `forecast`/`allPlanned` (60 jours, vues standard et prudente ; inclut dettes datées et versements d'épargne prévus), `simulatePurchase`, `recurrence`, `dettes`, `objectifs` (échéancier), `revenus` (statistiques de l'historique), `adviseSavings`, `spendingPace`, `simulateScenario` et `reference-abidjan`.
+- `src/data/` : dépôts (`FinanceRepository`, `SupabaseRepository`, `DemoRepository`), contexte React, `useWrite` (clé d'opération stable jusqu'au succès).
 - `src/app/` : écrans Expo Router. `src/components/ui.tsx` regroupe les composants accessibles.
 - `supabase/migrations/` (schéma, RLS, `record_operation` idempotente) et `supabase/tests/` (pgTAP).
 - `.claude/agents/` : les 8 sous-agents.
@@ -21,6 +21,9 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Une simulation ne crée aucune opération. Un achat abandonné n'est pas de l'épargne.
 - Idempotence : `unique (user_id, client_key)`. Le client garde la même clé pour tous les réessais.
 - Les références sont contrôlées par des clés étrangères composites `(user_id, id)`.
+- Dette : un remboursement = une opération + un règlement (`record_debt_payment`) ; un paiement supérieur au reste est refusé ; l'annulation supprime l'opération et recalcule. Réglée ≠ annulée ≠ remise. Une créance est incertaine par défaut.
+- Épargne : versement et retrait = transfert lié à l'objectif (`record_goal_movement`) ; le retrait ne peut dépasser l'épargne. L'échéancier répartit le reste sur les dates disponibles, arrondi au franc supérieur.
+- Remboursements de dettes et versements d'épargne ne comptent pas comme dépenses du quotidien ; les frais de transfert, si.
 
 ## Commandes (vérifiées)
 ```

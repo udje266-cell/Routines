@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { useFinance } from '@/data/finance-context';
 
@@ -118,7 +118,8 @@ export function ConnectionBanner() {
 }
 
 const s = StyleSheet.create({
-  screen: { padding: 16, gap: 12, paddingBottom: 120 },
+  // Sur le web, la barre d'onglets flotte en haut : on lui laisse la place.
+  screen: { padding: 16, paddingTop: Platform.OS === 'web' ? 80 : 16, gap: 12, paddingBottom: 120 },
   title: { fontSize: 26, fontWeight: '700', color: C.texte },
   label: { fontSize: 16, color: C.texte },
   card: { borderRadius: 14, padding: 16, gap: 8, borderWidth: 1, borderColor: C.bord },

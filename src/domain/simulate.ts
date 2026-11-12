@@ -1,6 +1,7 @@
 import { addDays, type CivilDate } from './dates';
 import { dailyMinimum, forecast, type Forecast } from './forecast';
 import type { Francs } from './money';
+import { undatedDebtsOf } from './dettes';
 import type { PlannedItem, Snapshot, UndatedDebt } from './types';
 
 export interface PurchaseInput {
@@ -126,7 +127,7 @@ export function simulatePurchase(snap: Snapshot, p: PurchaseInput): SimulationRe
     dependsOn,
     categoryOverrun,
     alternativeDate,
-    undatedDebts: snap.undatedDebts ?? [],
+    undatedDebts: [...(snap.undatedDebts ?? []), ...undatedDebtsOf(snap.debts ?? [])],
     preexistingDeficit,
   };
 }
