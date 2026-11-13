@@ -74,7 +74,7 @@ export default function Recuperation() {
           </>
         )}
         {message ? <Status tone={message.tone}>{message.text}</Status> : null}
-        <Label muted>Le code expire au bout d’une heure.</Label>
+        <Label muted>Le code expire au bout de 10 minutes.</Label>
       </Card>
     </Screen>
   );

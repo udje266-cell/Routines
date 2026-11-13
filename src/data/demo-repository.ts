@@ -163,7 +163,14 @@ export class DemoRepository implements FinanceRepository {
 
   async recordOperation(op: NewOperation) {
     if (this.seen(op.clientKey)) return;
-    if (!this.wallets.some((x) => x.id === op.walletId)) throw new RefusedError('Portefeuille inconnu');
+    const from = this.wallets.find((x) => x.id === op.walletId);
+    if (!from) throw new RefusedError('Portefeuille inconnu');
+    if (op.kind !== 'transfert' && !from.everyday) throw new RefusedError('Choisissez un portefeuille du quotidien.');
+    const pocket = (id?: string) => this.goals.some((g) => g.status === 'actif' && g.pocketWalletId === id);
+    if (op.kind === 'transfert' && (pocket(op.walletId) || pocket(op.toWalletId)))
+      throw new RefusedError('Pour l’épargne d’un objectif, utilisez « Ajouter un versement » ou « Retirer ».');
+    const planned = op.plannedItemId ? this.planned.find((x) => x.id === op.plannedItemId) : undefined;
+    if (planned && planned.kind !== op.kind) throw new RefusedError('L’opération ne correspond pas à l’échéance.');
     this.apply({
       id: `op-${op.clientKey}`, kind: op.kind, walletId: op.walletId, toWalletId: op.toWalletId, amount: op.amount, fee: op.fee,
       date: op.date, label: op.label, category: op.category, incomeType: op.kind === 'rentree' ? op.incomeType ?? 'principal' : undefined,
@@ -194,6 +201,7 @@ export class DemoRepository implements FinanceRepository {
     if (this.seen(p.clientKey)) return;
     const d = this.debts.find((x) => x.id === p.debtId);
     if (!d) throw new RefusedError('Dette introuvable');
+    if (!this.wallets.find((w) => w.id === p.walletId)?.everyday) throw new RefusedError('Choisissez un portefeuille du quotidien.');
     const err = checkPayment(d, p.amount);
     if (err) throw new RefusedError(err);
     const opId = `op-${p.clientKey}`;
@@ -228,6 +236,7 @@ export class DemoRepository implements FinanceRepository {
     if (this.seen(m.clientKey)) return;
     const g = this.goals.find((x) => x.id === m.goalId);
     if (!g) throw new RefusedError('Objectif introuvable');
+    if (!m.withdraw && g.status !== 'actif') throw new RefusedError('Cet objectif n’est plus actif.');
     if (m.withdraw && m.amount > progressOf(g)) throw new RefusedError(`Retrait supérieur à l’épargne (${progressOf(g)} F)`);
     this.apply({
       id: `op-${m.clientKey}`, kind: 'transfert', amount: m.amount, date: m.date, goalId: g.id,
@@ -317,8 +326,11 @@ export class DemoRepository implements FinanceRepository {
   async splitRecurring(ruleId: string, fromOriginal: CivilDate, p: { amount: number; day: number; label: string; walletId: string }) {
     const r = this.rules.find((y) => y.id === ruleId);
     if (!r) return;
+    if (r.settled.some((d) => d >= fromOriginal)) throw new RefusedError('Une échéance à partir de cette date est déjà réglée : modifiez à partir de la suivante.');
     if (fromOriginal <= r.start) return void Object.assign(r, p);
-    this.rules.push({ ...r, ...p, id: this.id(), start: fromOriginal, overrides: {}, settled: [] });
+    const moved = Object.fromEntries(Object.entries(r.overrides).filter(([d]) => d >= fromOriginal));
+    for (const d of Object.keys(moved)) delete r.overrides[d];
+    this.rules.push({ ...r, ...p, id: this.id(), start: fromOriginal, overrides: moved, settled: [] });
     r.end = addDays(fromOriginal, -1);
   }
 
@@ -351,6 +363,11 @@ export class DemoRepository implements FinanceRepository {
     if (this.seen(o.clientKey)) return;
     const l = this.loans.find((x) => x.id === o.loanId);
     if (!l) throw new RefusedError('Crédit introuvable');
+    if (l.status === 'solde') throw new RefusedError('Ce crédit est déjà soldé.');
+    if (o.installment && o.installment > l.months) throw new RefusedError('Échéance inexistante.');
+    const early = l.extras.reduce((s, e) => s + e.amount, 0);
+    if (o.installment === null && early + o.amount > l.principal)
+      throw new RefusedError(`Remboursement anticipé supérieur au reste emprunté (${l.principal - early} F).`);
     if (o.installment === 0 && (l.disbursed || o.amount !== l.principal - l.fees))
       throw new RefusedError(`Le déblocage correspond au montant emprunté moins les frais (${l.principal - l.fees} F).`);
     if (o.installment && l.paid.includes(o.installment)) throw new RefusedError('Cette échéance est déjà enregistrée.');

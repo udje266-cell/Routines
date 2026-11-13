@@ -15,7 +15,7 @@ it('rythme : aujourd’hui compte comme un jour restant', () => {
 });
 
 it('dépenses inhabituelles : médiane correcte avec un nombre pair de points', () => {
-  const op = (id: string, amount: number, date: string): Operation => ({ id, kind: 'sortie', walletId: 'w', amount, date, category: 'Sorties' });
+  const op = (id: string, amount: number, date: string): Operation => ({ id, kind: 'sortie', walletId: 'w', amount, date, label: '', category: 'Sorties' });
   const ops = [1000, 1000, 1000, 9000, 9000, 9000].map((a, i) => op(`o${i}`, a, '2026-09-1' + i));
   // Médiane 5 000 → seuil 12 500 : 15 000 est inhabituel (avec l'ancienne médiane 9 000, il passait inaperçu).
   expect(unusualSpends([...ops, op('x', 15_000, '2026-11-10')], '2026-11-13').map((o) => o.id)).toEqual(['x']);
