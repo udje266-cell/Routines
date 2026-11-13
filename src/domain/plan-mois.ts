@@ -124,7 +124,10 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
     }
   }
   const cashGap: SavingAdvice['cashGap'] = gapDate ? { amount: gapAmount, date: gapDate } : null;
-  const save = Math.max(0, Math.min(rec, left - (cashGap?.amount ?? 0)));
+  // Ce qu'il faudra encore avoir à la fin du mois pour les sorties du début du mois suivant (avant la paie).
+  const outlook = snap.today.slice(0, 7) === start.slice(0, 7) ? monthEndOutlook(snap) : null;
+  const keepForNext = outlook ? Math.max(0, -outlook.free) : 0;
+  const save = Math.max(0, Math.min(rec, left - (cashGap?.amount ?? 0) - keepForNext));
   const daysLeft = Math.max(1, Math.round((Date.parse(end) - Date.parse(snap.today)) / 86_400_000) + 1);
   const spentSoFar = all.filter((e) => e.kind === 'sortie' && e.done && !isSaving(e) && !e.planned).reduce((s, e) => s + e.amount, 0);
   const perDay = Math.max(0, Math.floor((left - save - (cashGap?.amount ?? 0)) / daysLeft));
@@ -158,6 +161,47 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
     steps.push('Tout est déjà pris par vos factures : gardez au moins une petite somme de côté chaque semaine, même 1 000 F.');
   }
 
+  if (outlook && outlook.earlyNext.total > 0 && left >= 0) {
+    const d = outlook.earlyNext.until;
+    steps.push(keepForNext > 0
+      ? `Gardez de côté ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}) : il vous manquera ${F(keepForNext)} d’ici le ${d.slice(8)}-${d.slice(5, 7)}.`
+      : `À la fin du mois, gardez ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}).`);
+  }
+
   return { start, end, days, income, expenses, savingsPlanned, debtReserve, debts, left,
     advice: { save, saveOn, perDay, steps, shortBy: Math.max(0, -left), cashGap } };
+}
+
+export interface MonthEndOutlook {
+  /** Dernier jour du mois en cours. */
+  end: CivilDate;
+  /** Ce que vous aurez en tout ce jour-là (comptes du quotidien et épargne), d'après les prévisions. */
+  endBalance: Francs;
+  /** Le plus bas d'ici la fin du mois. */
+  lowest: { date: CivilDate; total: Francs } | null;
+  /** Ce qui est à payer au début du mois suivant, avant la paie (ou jusqu'au 15 sans paie connue). */
+  earlyNext: { until: CivilDate; items: PlannedItem[]; total: Francs; payday: PlannedItem | null };
+  /** Ce qui reste vraiment une fois ces sorties du début de mois mises de côté. */
+  free: Francs;
+}
+
+/**
+ * Prévision arrêtée à la fin du mois : combien vous aurez ce jour-là, puis ce qu'il faut garder pour les
+ * sorties du début du mois suivant (avant la paie), et ce qui reste vraiment.
+ */
+export function monthEndOutlook(snap: Snapshot, view: 'standard' | 'prudente' = 'standard'): MonthEndOutlook {
+  const { end } = monthBounds(snap.today);
+  const fc = forecast(snap, view);
+  const inMonth = fc.events.filter((e) => e.date <= end);
+  const endBalance = inMonth.length ? inMonth[inMonth.length - 1].total : fc.start.total;
+  const lowest = inMonth.reduce<{ date: CivilDate; total: Francs } | null>((lo, e) => (!lo || e.total < lo.total ? { date: e.date, total: e.total } : lo), null);
+
+  const nextStart = addDays(end, 1);
+  const nextEnd = monthBounds(nextStart).end;
+  const after = fc.events.filter((e) => e.date >= nextStart && e.date <= nextEnd);
+  const payday = after.find((e) => e.item.kind === 'rentree' && !!e.item.recurring)?.item ?? null;
+  const until = payday ? addDays(payday.date, -1) : `${nextStart.slice(0, 8)}15`;
+  const items = after.filter((e) => e.item.kind === 'sortie' && e.date <= until).map((e) => e.item);
+  const total = items.reduce((s, i) => s + i.amount, 0);
+  return { end, endBalance, lowest, earlyNext: { until, items, total, payday }, free: endBalance - total };
 }

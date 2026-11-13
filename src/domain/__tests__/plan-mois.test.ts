@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import { monthBounds, monthPlan, type RecurringRule, type Snapshot } from '..';
+import { monthBounds, monthEndOutlook, monthPlan, type RecurringRule, type Snapshot } from '..';
 
 const rule = (id: string, label: string, kind: 'sortie' | 'rentree', amount: number, day: number): RecurringRule => ({
   id, label, kind, amount, day, start: '2026-11-01', walletId: 'w', overrides: {}, settled: [],
@@ -78,4 +78,14 @@ describe('dettes dans le plan du mois', () => {
     const p = monthPlan({ ...snap, debts: [{ ...debt('Moi', 50_000), direction: 'on_me_doit' as const }] });
     expect(p.debtReserve).toBe(0);
   });
+});
+
+it('fin du mois : solde ce jour-là, puis ce qu’il faut garder pour le début du mois suivant', () => {
+  // Wave 60 000 F ; salaire 120 000 F le 25 ; loyer 40 000 F le 5 ; CIE 10 000 F le 15 ; déjà 5 000 F dépensés.
+  const o = monthEndOutlook(snap);
+  expect(o.end).toBe('2026-11-30');
+  expect(o.endBalance).toBe(60_000 - 40_000 - 10_000 + 120_000); // 130 000 F le 30-11
+  expect(o.earlyNext.until).toBe('2026-12-24'); // jusqu’à la veille de la paie de décembre
+  expect(o.earlyNext.items.map((i) => i.label)).toEqual(['Loyer', 'CIE']);
+  expect(o.free).toBe(130_000 - 50_000);
 });

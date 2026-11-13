@@ -28,7 +28,7 @@ export const AIDE = {
   },
   agenda: {
     titre: 'L’agenda',
-    texte: 'Tout ce qui est prévu sur les 2 prochains mois, jour par jour, avec l’argent qu’il vous restera après chaque ligne.\n\n« Prévu » compte l’argent que vous attendez. « Prudent » fait comme s’il n’arrivait pas : si vous tenez dans la vue Prudent, vous êtes tranquille.\n\nQuand votre paie arrive, touchez-la et choisissez « Reçu ».',
+    texte: 'Tout ce qui est prévu d’ici la fin du mois, jour par jour. En bas : combien vous aurez le dernier jour du mois, puis ce qu’il faut garder pour les factures du début du mois suivant (avant la paie) et ce qui vous restera vraiment.\n\n« Prévu » compte l’argent que vous attendez. « Prudent » fait comme s’il n’arrivait pas : si vous tenez dans la vue Prudent, vous êtes tranquille.\n\nQuand votre paie arrive, touchez-la et choisissez « Reçu ».',
   },
   dettes: {
     titre: 'Les dettes',

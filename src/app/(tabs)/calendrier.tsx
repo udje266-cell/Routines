@@ -6,7 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { PlannedActions } from '@/components/planned-actions';
 import { C, Card, Choice, Label, Screen, Status, SummaryCard } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
-import { forecast, formatDateFr, formatFcfa, type ForecastEvent, type ForecastView } from '@/domain';
+import { forecast, formatDateCourt, formatDateFr, formatFcfa, monthEndOutlook, type ForecastEvent, type ForecastView } from '@/domain';
 import { itemIcon } from '@/lib/categories';
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -54,10 +54,14 @@ export default function Calendrier() {
   const subtitle = `${MOIS[m0 - 1][0].toUpperCase()}${MOIS[m0 - 1].slice(1)} ${(snapshot?.today ?? '').slice(0, 4)}`;
   if (!snapshot) return <Screen title="Calendrier" subtitle={subtitle}><Label muted>Chargement…</Label></Screen>;
 
+  // Prévision arrêtée à la fin du mois ; le début du mois suivant n'est compté que pour ce qu'il faut garder.
   const fc = forecast(snapshot, view);
+  const out = monthEndOutlook(snapshot, view);
+  const events = fc.events.filter((e) => e.date <= out.end);
   // Seules les échéances saisies à la main se confirment ici (dettes, épargne et factures du mois ont leur écran).
   const own = new Set(snapshot.planned.map((p) => p.id));
-  const lowest = fc.events.reduce<ForecastEvent | null>((lo, e) => (!lo || e.total < lo.total ? e : lo), null);
+  const lowest = out.lowest;
+  const nextMonth = MOIS[Number(out.earlyNext.until.slice(5, 7)) - 1];
 
   return (
     <Screen title="Calendrier" subtitle={subtitle} help={<Aide k="agenda" size={26} />}>
@@ -72,8 +76,8 @@ export default function Calendrier() {
         </Card>
       ))}
 
-      {fc.events.length === 0 ? <Label muted>Rien de prévu pour les 60 prochains jours.</Label> : null}
-      {fc.events.map((e, idx) => {
+      {events.length === 0 ? <Label muted>Rien de prévu d’ici la fin du mois.</Label> : null}
+      {events.map((e, idx) => {
         const actionable = own.has(e.item.id) && (e.item.kind === 'rentree' || e.date <= snapshot.today);
         return (
           <View key={e.item.id} style={{ gap: 8 }}>
@@ -84,13 +88,33 @@ export default function Calendrier() {
         );
       })}
 
-      {lowest ? (
-        <SummaryCard label={`Solde prévu le ${Number(lowest.date.slice(8))} (le plus bas)`} amount={`${formatFcfa(lowest.total)} CFA`}
-          tone={lowest.total < 0 ? 'rouge' : 'lavande'}>
-          <Text style={{ fontSize: 15, color: C.secondaire }}>
-            Aujourd’hui : {formatFcfa(fc.start.total)}. {lowest.total < 0 ? 'Il faudra trouver de l’argent ou reporter une dépense.' : 'Vous restez au-dessus de zéro.'}
+      <SummaryCard label={`Le ${formatDateFr(out.end)}, vous aurez`} amount={`${formatFcfa(out.endBalance)} CFA`}
+        tone={out.endBalance < 0 ? 'rouge' : 'lavande'} icon="flag-outline">
+        <Text style={{ fontSize: 15, color: C.secondaire }}>
+          Aujourd’hui : {formatFcfa(fc.start.total)}.{lowest && lowest.total < out.endBalance
+            ? ` Au plus bas : ${formatFcfa(lowest.total)} le ${formatDateCourt(lowest.date)}.` : ''}
+          {lowest && lowest.total < 0 ? ' Il faudra trouver de l’argent ou reporter une dépense.' : ''}
+        </Text>
+      </SummaryCard>
+
+      {out.earlyNext.items.length ? (
+        <Card tone={out.free < 0 ? 'risque' : undefined}>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: C.texte }}>À garder pour début {nextMonth}</Text>
+          <Text style={{ fontSize: 14, color: C.secondaire }}>
+            {out.earlyNext.payday ? `À payer avant votre paie du ${formatDateCourt(out.earlyNext.payday.date)}` : `À payer d’ici le ${formatDateCourt(out.earlyNext.until)}`}
           </Text>
-        </SummaryCard>
+          {out.earlyNext.items.map((i) => (
+            <View key={i.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+              <Text style={{ flex: 1, fontSize: 15, color: C.texte }} numberOfLines={1}>{formatDateCourt(i.date)} · {i.label}</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: C.texte }}>−{formatFcfa(i.amount)}</Text>
+            </View>
+          ))}
+          <View style={{ height: 1, backgroundColor: C.bord }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+            <Text style={{ flex: 1, fontSize: 16, fontWeight: '800', color: C.texte }}>{out.free < 0 ? 'Il vous manquera' : 'Il vous restera vraiment'}</Text>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: out.free < 0 ? C.risque : C.mentheTexte }}>{formatFcfa(Math.abs(out.free))}</Text>
+          </View>
+        </Card>
       ) : null}
     </Screen>
   );

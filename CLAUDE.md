@@ -8,7 +8,7 @@ Au backlog, hors V1 : synchronisation multiappareil, budgets partagés, import a
 Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne recommandée selon le revenu et les objectifs (fonds d'urgence ajouté par défaut), suivi des petites rentrées ou « petites coupures » avec rythme de dépense et budget du jour, simulateur de scénarios sur plusieurs mois.
 
 ## Structure
-- `src/domain/` : moteur pur, sans React, réseau ni horloge. Contient `cycle` (bornes, plafonds, bilan), `forecast`/`allPlanned` (60 jours, vues standard et prudente ; inclut dettes datées et versements d'épargne prévus), `simulatePurchase`, `recurrence`, `dettes`, `objectifs` (échéancier), `revenus` (statistiques de l'historique), `adviseSavings`, `spendingPace`, `simulateScenario` et `reference-abidjan`.
+- `src/domain/` : moteur pur, sans React, réseau ni horloge. Agenda arrêté à la fin du mois (`monthEndOutlook` : solde du dernier jour, sorties du début du mois suivant avant la paie, reste réel ; aussi retenues par `monthPlan`). Contient `cycle` (bornes, plafonds, bilan), `forecast`/`allPlanned` (60 jours, vues standard et prudente ; inclut dettes datées et versements d'épargne prévus), `simulatePurchase`, `recurrence`, `dettes`, `objectifs` (échéancier), `revenus` (statistiques de l'historique), `adviseSavings`, `spendingPace`, `simulateScenario` et `reference-abidjan`.
 - `src/data/` : dépôts (`FinanceRepository`, `SupabaseRepository`, `DemoRepository`), contexte React, `useWrite` (clé d'opération stable jusqu'au succès).
 - `src/app/` : écrans Expo Router. `src/components/ui.tsx` regroupe les composants accessibles.
 - `supabase/migrations/` (schéma, RLS, `record_operation` idempotente) et `supabase/tests/` (pgTAP).
