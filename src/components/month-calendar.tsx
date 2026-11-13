@@ -1,4 +1,6 @@
 import { Aide } from '@/components/aide';
+import { PlannedActions } from '@/components/planned-actions';
+import { useFinance } from '@/data/finance-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -115,21 +117,44 @@ export function MonthCalendar({ plan, today, selected, onSelect }: {
 export function DayPanel({ day, today, entries }: { day: CivilDate; today: CivilDate; entries: DayEntry[] }) {
   const title = day === today ? 'Aujourd’hui' : day === addDays(today, 1) ? 'Demain' : formatDateFr(day);
   const future = day > today;
+  const { snapshot } = useFinance();
+  const ownIds = new Set((snapshot?.planned ?? []).map((p) => p.id));
+  const [opened, setOpened] = useState<string | null>(null);
   return (
     <View style={{ backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: C.bord, padding: 14, gap: 8 }}>
       <Text style={{ fontSize: 17, fontWeight: '800', color: C.texte }}>{title}</Text>
       {entries.length === 0 ? (
         <Text style={{ fontSize: 15, color: C.secondaire }}>{future ? 'Rien de prévu ce jour-là.' : 'Rien ce jour-là.'}</Text>
       ) : null}
-      {entries.map((e) => (
-        <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Ionicons name={itemIcon(e.label, e.category, e.kind === 'entree' ? 'rentree' : 'sortie')} size={22} color={C.texte} />
-          <Text style={{ flex: 1, fontSize: 16, color: C.texte }} numberOfLines={1}>{e.label}{e.done ? '' : ' · prévu'}</Text>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: e.kind === 'entree' ? C.mentheTexte : C.texte }}>
-            {e.kind === 'entree' ? '+' : '−'}{formatFcfa(e.amount)}
-          </Text>
-        </View>
-      ))}
+      {entries.length ? <Text style={{ fontSize: 13, color: C.secondaire }}>Touchez une ligne pour la modifier ou l’effacer.</Text> : null}
+      {entries.map((e) => {
+        // Saisie à la main (« + Entrée / + Sortie » d'un jour à venir) : se confirme, se déplace ou s'efface ici.
+        const own = !e.done && !!e.planned && ownIds.has(e.planned.id);
+        const open = () => {
+          if (e.done) return router.push({ pathname: '/operation', params: { id: e.id } });
+          if (own) return setOpened(opened === e.id ? null : e.id);
+          const p = e.planned;
+          if (p?.recurring) return router.push('/depenses-mensuelles');
+          if (p?.loan) return router.push('/credits');
+          if (p?.source === 'dette') return router.push('/dettes');
+          if (p?.source === 'epargne') return router.push('/epargne');
+        };
+        return (
+          <View key={e.id} style={{ gap: 6 }}>
+            <Pressable onPress={open} accessibilityRole="button" accessibilityState={own ? { expanded: opened === e.id } : undefined}
+              accessibilityLabel={`${e.label}, ${e.kind === 'entree' ? 'plus' : 'moins'} ${formatFcfa(e.amount)}${e.done ? '' : ', prévu'}. Modifier ou effacer`}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, opacity: pressed ? 0.6 : 1 })}>
+              <Ionicons name={itemIcon(e.label, e.category, e.kind === 'entree' ? 'rentree' : 'sortie')} size={22} color={C.texte} />
+              <Text style={{ flex: 1, fontSize: 16, color: C.texte }} numberOfLines={1}>{e.label}{e.done ? '' : ' · prévu'}</Text>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: e.kind === 'entree' ? C.mentheTexte : C.texte }}>
+                {e.kind === 'entree' ? '+' : '−'}{formatFcfa(e.amount)}
+              </Text>
+              <Ionicons name={own && opened === e.id ? 'chevron-up' : 'chevron-forward'} size={18} color={C.secondaire} />
+            </Pressable>
+            {own && opened === e.id ? <PlannedActions item={e.planned!} /> : null}
+          </View>
+        );
+      })}
       <View style={{ flexDirection: 'row', gap: 8 }}>
         {(['entree', 'sortie'] as const).map((k) => (
           <Pressable key={k} accessibilityRole="button"
