@@ -12,7 +12,7 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - `src/data/` : dépôts (`FinanceRepository`, `SupabaseRepository`, `DemoRepository`), contexte React, `useWrite` (clé d'opération stable jusqu'au succès).
 - `src/app/` : écrans Expo Router. `src/components/ui.tsx` regroupe les composants accessibles.
 - `supabase/migrations/` (schéma, RLS, `record_operation` idempotente) et `supabase/tests/` (pgTAP).
-- `.claude/agents/` : les 8 sous-agents.
+- `.claude/agents/` : les 8 sous-agents du projet. `plugins/kit-dev/` (marketplace `kit-udje`, activé dans `.claude/settings.json`) : relecteurs `relecteur-securite`, `relecteur-base-donnees`, `relecteur-react`, `relecteur-typescript` et compétences `react-native-expo`, `postgres-supabase`, `tests-tdd`, `revue-securite`, adaptés d’'ECC (MIT) et réutilisables dans les autres projets. Les consignes de ce fichier priment sur le kit (ex. montants en francs entiers).
 
 ## Invariants financiers
 - Montants en francs entiers, dates `YYYY-MM-DD`. Une rentrée future ne modifie jamais le solde réel.

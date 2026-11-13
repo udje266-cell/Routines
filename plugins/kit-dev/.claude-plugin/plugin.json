@@ -1,0 +1,6 @@
+{
+  "name": "kit-dev",
+  "version": "1.0.0",
+  "description": "Relecteurs et méthodes de développement en français (mobile React Native/Expo, Supabase/Postgres, tests, sécurité). Adapté d’Everything Claude Code (MIT).",
+  "license": "MIT"
+}

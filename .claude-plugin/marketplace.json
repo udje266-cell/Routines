@@ -1,0 +1,11 @@
+{
+  "name": "kit-udje",
+  "owner": { "name": "udje266-cell" },
+  "plugins": [
+    {
+      "name": "kit-dev",
+      "source": "./plugins/kit-dev",
+      "description": "Relecteurs (sécurité, base de données, React, TypeScript) et méthodes (React Native/Expo, Postgres/Supabase, tests, sécurité), en français. Adapté d’ECC (MIT)."
+    }
+  ]
+}

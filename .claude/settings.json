@@ -1,5 +1,9 @@
 {
+  "extraKnownMarketplaces": {
+    "kit-udje": { "source": { "source": "github", "repo": "udje266-cell/Routines" } }
+  },
   "enabledPlugins": {
-    "expo@claude-plugins-official": true
+    "expo@claude-plugins-official": true,
+    "kit-dev@kit-udje": true
   }
 }
