@@ -58,17 +58,17 @@ export default function Aujourdhui() {
       {short ? (
         <SummaryCard label="Il vous manque" amount={F(-sts.afterBills)} tone="rouge" icon="warning-outline" help={<Aide k="manque" />}>
           <Text style={{ fontSize: 15, color: C.texte }}>
-            pour payer vos factures{sts.debtReserve > 0 ? ' et la part de vos dettes' : ''} d’ici le {formatDateCourt(sts.until)}. Évitez les dépenses qui peuvent attendre.
+            pour payer vos factures{sts.debtTotal > 0 ? ` et vos dettes (${F(sts.debtTotal)})` : ''} d’ici le {formatDateCourt(sts.until)}. Évitez les dépenses qui peuvent attendre.
           </Text>
         </SummaryCard>
       ) : (
         <SummaryCard label="Je peux dépenser aujourd’hui" amount={F(sts.perDay)} help={<Aide k="peutDepenser" />}>
           <View style={{ height: 1, backgroundColor: 'rgba(30,24,59,0.12)' }} />
           <Text style={{ fontSize: 15, color: C.texte }}>
-            Factures{sts.debtReserve > 0 ? ' et dettes' : ''} déjà mises de côté · {sts.nextIncome ? `jusqu’à la paie du ${formatDateCourt(sts.nextIncome.date)}` : 'jusqu’à la fin du mois'}
+            Factures{sts.debtTotal > 0 ? ' et dettes' : ''} déjà mises de côté · {sts.nextIncome ? `jusqu’à la paie du ${formatDateCourt(sts.nextIncome.date)}` : 'jusqu’à la fin du mois'}
           </Text>
           <Text style={{ fontSize: 15, color: C.secondaire }}>Vous avez {F(total)} en tout.</Text>
-          {sts.debtReserve > 0 ? <Text style={{ fontSize: 15, color: C.secondaire }}>Dont {F(sts.debtReserve)} gardés pour rembourser vos dettes.</Text> : null}
+          {sts.debtTotal > 0 ? <Text style={{ fontSize: 15, color: C.secondaire }}>{F(sts.debtTotal)} sont gardés pour rembourser vos dettes.</Text> : null}
         </SummaryCard>
       )}
 

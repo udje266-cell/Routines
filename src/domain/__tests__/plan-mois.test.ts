@@ -71,7 +71,11 @@ describe('dettes dans le plan du mois', () => {
   it('une dette datée dans le mois avec un compte n’est pas comptée deux fois', () => {
     const p = monthPlan({ ...snap, debts: [debt('Ali', 8_000, '2026-11-20', 'w')] });
     expect(p.debtReserve).toBe(0);
-    expect(p.expenses).toBe(base.expenses + 8_000);
+    expect(p.expenses).toBe(base.expenses); // la dette a sa propre ligne
+    expect(p.debtPayments).toBe(8_000);
+    expect(p.debtTotal).toBe(8_000);
+    expect(p.left).toBe(base.left - 8_000);
+    expect(p.advice.steps[0]).toMatch(/Remboursez d’abord vos dettes.*Ali.*20-11/);
   });
 
   it('une créance (on me doit) ne réduit pas ce qui reste', () => {

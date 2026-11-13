@@ -169,6 +169,8 @@ export interface SafeToSpend {
   afterBills: Francs;
   /** Part des dettes mise de côté d'ici la paie (dettes sans date, sans compte, ou dues plus tard). */
   debtReserve: Francs;
+  /** Tout ce qui part en dettes d'ici la paie : remboursements datés du calendrier + part réservée. */
+  debtTotal: Francs;
   /** Jours couverts (aujourd'hui inclus) jusqu'à la veille de la prochaine paie, ou fin de l'horizon. */
   days: number;
   until: CivilDate;
@@ -203,5 +205,6 @@ export function safeToSpend(snap: Snapshot, fallbackEnd?: CivilDate): SafeToSpen
     last = e.total;
   }
   perDay = Math.min(perDay, (last - debtReserve) / days);
-  return { perDay: Math.max(0, Math.floor(perDay)), afterBills, debtReserve, days, until, nextIncome: m.nextIncome };
+  const debtDated = fc.events.filter((e) => e.date <= until && e.item.kind === 'sortie' && e.item.source === 'dette').reduce((s, e) => s + e.item.amount, 0);
+  return { perDay: Math.max(0, Math.floor(perDay)), afterBills, debtReserve, debtTotal: debtDated + debtReserve, days, until, nextIncome: m.nextIncome };
 }

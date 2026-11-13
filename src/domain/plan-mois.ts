@@ -35,6 +35,10 @@ export interface MonthPlan {
   savingsPlanned: Francs;
   /** Part des dettes à rembourser ce mois-ci, au-delà de celles déjà datées dans le mois. */
   debtReserve: Francs;
+  /** Dettes datées dans le mois (déjà dans le calendrier), à rembourser ce mois-ci. */
+  debtPayments: Francs;
+  /** Tout ce qui part en dettes ce mois-ci (datées + part réservée). */
+  debtTotal: Francs;
   /** Le détail de cette part, dette par dette. */
   debts: DebtShare[];
   /** Ce qu'il reste une fois tout payé (dettes comprises), avant l'épargne. */
@@ -93,7 +97,10 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
   const all = Object.values(days).flat();
   const isSaving = (e: DayEntry) => e.category === 'Épargne';
   const income = all.filter((e) => e.kind === 'entree').reduce((s, e) => s + e.amount, 0);
-  const expenses = all.filter((e) => e.kind === 'sortie' && !isSaving(e)).reduce((s, e) => s + e.amount, 0);
+  const isDebt = (e: DayEntry) => e.kind === 'sortie' && !e.done && e.planned?.source === 'dette';
+  const debtPayments = all.filter(isDebt).reduce((s, e) => s + e.amount, 0);
+  // Sorties du mois hors épargne et hors dettes (les dettes ont leur propre ligne).
+  const expenses = all.filter((e) => e.kind === 'sortie' && !isSaving(e) && !isDebt(e)).reduce((s, e) => s + e.amount, 0);
   const savingsPlanned = all.filter(isSaving).reduce((s, e) => s + e.amount, 0);
 
   // Dettes que je dois et qui ne sont pas déjà dans le mois : sans date, sans compte choisi, ou à rembourser plus tard.
@@ -101,12 +108,13 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
   const alreadyPlanned = new Set(all.filter((e) => e.planned?.source === 'dette').map((e) => e.planned!.id));
   const debts = debtShares(snap.debts ?? [], start, end, (d) => alreadyPlanned.has(`dette-${d.id}`));
   const debtReserve = debts.reduce((s, d) => s + d.thisMonth, 0);
-  const left = income - expenses - debtReserve;
+  const debtTotal = debtPayments + debtReserve;
+  const left = income - expenses - debtTotal;
 
   // Combien : la recommandation habituelle (20 % visé, objectifs, capacité), bornée par ce qui reste vraiment ce mois-ci.
   const st = incomeStats(snap.operations ?? [], snap.today, start);
   const rec = adviseSavings({
-    today: snap.today, income: Math.max(st.mainMonthly, income), smallIncome: 0, essentials: expenses + debtReserve,
+    today: snap.today, income: Math.max(st.mainMonthly, income), smallIncome: 0, essentials: expenses + debtTotal,
     // Les remboursements de dettes passent avant l'épargne : ils réduisent la capacité d'épargne.
     goals: (snap.goals ?? []).filter((g) => g.status === 'actif').map((g) => ({ id: g.id, name: g.name, target: g.target, saved: progressOf(g), date: g.date })),
   }).recommended;
@@ -140,13 +148,17 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
       ? `Demandez à décaler « ${next.label} » (${F(next.amount)}) après votre paie, ou notez chaque petite somme reçue d’ici là.`
       : 'Reportez les dépenses qui peuvent attendre et notez chaque petite somme reçue d’ici là.');
   }
-  const debtStep = debts.length
-    ? `Remboursez d’abord vos dettes : prévoyez ${F(debtReserve)} ce mois-ci (${debts.slice(0, 3).map((d) => `${d.person} ${F(d.thisMonth)}`).join(', ')}${debts.length > 3 ? '…' : ''}).`
+  const debtLines = [
+    ...all.filter(isDebt).map((e) => `${e.label.replace(/^Rembourser /, '')} ${F(e.amount)} le ${e.planned!.date.slice(8)}-${e.planned!.date.slice(5, 7)}`),
+    ...debts.map((d) => `${d.person} ${F(d.thisMonth)}`),
+  ];
+  const debtStep = debtTotal > 0
+    ? `Remboursez d’abord vos dettes : ${F(debtTotal)} ce mois-ci (${debtLines.slice(0, 4).join(', ')}${debtLines.length > 4 ? '…' : ''}).`
     : null;
   if (debtStep && left >= 0) steps.push(debtStep);
   if (left < 0) {
     const biggest = all.filter((e) => e.kind === 'sortie' && !e.done).sort((a, b) => b.amount - a.amount).slice(0, 2);
-    steps.push(`Ce mois-ci, vos sorties${debtReserve ? ' et vos dettes' : ''} dépassent vos entrées de ${F(-left)} : pas d’épargne possible pour l’instant.`);
+    steps.push(`Ce mois-ci, vos sorties${debtTotal ? ' et vos dettes' : ''} dépassent vos entrées de ${F(-left)} : pas d’épargne possible pour l’instant.`);
     if (debtStep) steps.push(debtStep);
     if (biggest.length) steps.push(`Voyez si vous pouvez reporter ou réduire : ${biggest.map((b) => `${b.label} (${F(b.amount)})`).join(', ')}.`);
     steps.push('Notez chaque petite somme reçue : elle peut combler l’écart.');
@@ -168,7 +180,7 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
       : `À la fin du mois, gardez ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}).`);
   }
 
-  return { start, end, days, income, expenses, savingsPlanned, debtReserve, debts, left,
+  return { start, end, days, income, expenses, savingsPlanned, debtReserve, debtPayments, debtTotal, debts, left,
     advice: { save, saveOn, perDay, steps, shortBy: Math.max(0, -left), cashGap } };
 }
 
