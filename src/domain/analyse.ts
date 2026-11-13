@@ -1,8 +1,9 @@
 import { amortization, DEBT_SERVICE_LIMIT } from './credit';
 import { addDays, type CivilDate } from './dates';
-import { remainingOf } from './dettes';
+import { debtShares, remainingOf } from './dettes';
+import { monthBounds } from './plan-mois';
 import { allPlanned } from './forecast';
-import type { Francs } from './money';
+import { formatFcfa, type Francs } from './money';
 import { monthlyFixedTotal } from './recurrence';
 import { incomeStats, type Operation } from './revenus';
 import type { Snapshot } from './types';
@@ -144,11 +145,19 @@ export interface Ratios {
   smallShare: number;
   fixedCharges: Francs;
   loanPayments: Francs;
+  /** Dettes envers des personnes : à rembourser ce mois-ci, et reste dû en tout. */
+  personalDebtMonth: Francs;
+  personalDebts: Francs;
 }
 
 export function ratios(snap: Snapshot): Ratios {
   const st = incomeStats(snap.operations ?? [], snap.today, snap.today);
-  const income = st.mainMonthly + st.smallMonthly;
+  // Sans historique, le salaire prévu (revenu de chaque mois) sert de revenu principal.
+  const soon = addDays(snap.today, 31);
+  const active = (r: { start: CivilDate; end?: CivilDate }) => r.start <= soon && (!r.end || r.end >= snap.today);
+  const expectedMain = (snap.recurring ?? []).filter((r) => r.kind === 'rentree' && active(r)).reduce((s, r) => s + r.amount, 0);
+  const mainIncome = Math.max(st.mainMonthly, expectedMain);
+  const income = mainIncome + st.smallMonthly;
   const pockets = snap.wallets.filter((w) => !w.everyday).map((w) => w.id);
   const hist = monthlyHistory(snap.operations ?? [], pockets, snap.today, 3).filter((m) => m.income > 0 || m.spending > 0);
   const saved = hist.length ? hist.reduce((s, m) => s + m.saved, 0) / hist.length : 0;
@@ -158,16 +167,22 @@ export function ratios(snap: Snapshot): Ratios {
   }, 0);
   const end = addDays(snap.today, 29);
   const oneOff = snap.planned.filter((p) => p.kind === 'sortie' && p.date >= snap.today && p.date <= end).reduce((s, p) => s + p.amount, 0);
-  const fixedCharges = monthlyFixedTotal(snap.recurring ?? [], snap.today) + loanPayments + oneOff;
+  const fixedCharges = Math.max(monthlyFixedTotal(snap.recurring ?? [], snap.today),
+    (snap.recurring ?? []).filter((r) => r.kind === 'sortie' && active(r)).reduce((s, r) => s + r.amount, 0)) + loanPayments + oneOff;
+  const { end: monthEnd } = monthBounds(snap.today);
+  const personalDebtMonth = debtShares(snap.debts ?? [], snap.today, monthEnd).reduce((s, d) => s + d.thisMonth, 0);
+  const personalDebts = (snap.debts ?? []).filter((d) => d.direction === 'je_dois').reduce((s, d) => s + remainingOf(d), 0);
+  const debtLoad = loanPayments + personalDebtMonth;
   const savings = snap.wallets.filter((w) => !w.everyday).reduce((s, w) => s + w.balance, 0);
   return {
-    income, mainIncome: st.mainMonthly, smallIncome: st.smallMonthly,
+    income, mainIncome, smallIncome: st.smallMonthly,
     savingsRate: income ? saved / income : 0,
-    debtService: st.mainMonthly ? loanPayments / st.mainMonthly : loanPayments ? Infinity : 0,
+    // Crédits ET dettes envers des personnes à rembourser ce mois-ci, rapportés au revenu principal.
+    debtService: mainIncome ? debtLoad / mainIncome : debtLoad ? Infinity : 0,
     emergencyMonths: fixedCharges ? savings / fixedCharges : savings > 0 ? Infinity : 0,
     fixedShare: income ? fixedCharges / income : 0,
     smallShare: income ? st.smallMonthly / income : 0,
-    fixedCharges, loanPayments,
+    fixedCharges, loanPayments, personalDebtMonth, personalDebts,
   };
 }
 
@@ -201,7 +216,11 @@ export function financialHealth(snap: Snapshot): Health {
   add('epargne', 'Épargne', (r.savingsRate / 0.2) * 20,
     `Vous épargnez ${pctTxt(r.savingsRate)} de vos rentrées (objectif : 20 %).`);
   add('endettement', 'Endettement', r.debtService === 0 ? 20 : ((DEBT_SERVICE_LIMIT - Math.min(r.debtService, DEBT_SERVICE_LIMIT)) / DEBT_SERVICE_LIMIT) * 20,
-    r.debtService === 0 ? 'Aucun crédit en cours.' : `Vos crédits absorbent ${pctTxt(r.debtService)} de votre revenu principal (repère : un tiers au plus).`);
+    r.debtService === 0
+      ? (r.personalDebts ? `Aucun remboursement ce mois-ci (reste dû : ${formatFcfa(r.personalDebts)}).` : 'Aucune dette ni crédit en cours.')
+      : !Number.isFinite(r.debtService)
+        ? `${formatFcfa(r.loanPayments + r.personalDebtMonth)} de dettes à rembourser ce mois-ci, sans revenu enregistré.`
+        : `Dettes et crédits : ${formatFcfa(r.loanPayments + r.personalDebtMonth)} à rembourser ce mois-ci, soit ${pctTxt(r.debtService)} de votre revenu principal (repère : un tiers au plus).`);
   add('securite', 'Fonds d’urgence', (Math.min(r.emergencyMonths, 3) / 3) * 20,
     Number.isFinite(r.emergencyMonths) ? `Votre épargne couvre ${r.emergencyMonths.toFixed(1).replace('.', ',')} mois de charges fixes (objectif : 3).` : 'Aucune charge fixe enregistrée.');
   add('charges', 'Charges fixes', r.income ? ((0.7 - Math.min(r.fixedShare, 0.7)) / 0.2) * 20 : 0,
