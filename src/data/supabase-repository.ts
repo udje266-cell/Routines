@@ -62,6 +62,7 @@ export class SupabaseRepository implements FinanceRepository {
       recurring: o.recurring_rule_id ? { ruleId: o.recurring_rule_id, original: o.recurring_original } : undefined,
       loanId: o.loan_id ?? undefined,
       loanInstallment: o.loan_installment ?? null,
+      plannedItemId: o.planned_item_id ?? undefined,
     }));
     const bal = new Map((balances as { wallet_id: string; balance: number }[]).map((b) => [b.wallet_id, Number(b.balance)]));
     return {

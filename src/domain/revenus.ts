@@ -23,6 +23,8 @@ export interface Operation {
   loanId?: string;
   /** 0 = déblocage, n = échéance n, null = remboursement anticipé. */
   loanInstallment?: number | null;
+  /** Argent attendu (ou sortie prévue) marqué « reçu »/« payé » par cette opération. */
+  plannedItemId?: string;
 }
 
 export interface IncomeStats {

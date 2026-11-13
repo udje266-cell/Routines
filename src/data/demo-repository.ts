@@ -102,6 +102,8 @@ export class DemoRepository implements FinanceRepository {
     }];
   }
 
+  private settledPlanned = new Map<string, PlannedItem & { full: boolean }>();
+
   private id() {
     return `demo-${++this.seq}`;
   }
@@ -174,10 +176,13 @@ export class DemoRepository implements FinanceRepository {
     this.apply({
       id: `op-${op.clientKey}`, kind: op.kind, walletId: op.walletId, toWalletId: op.toWalletId, amount: op.amount, fee: op.fee,
       date: op.date, label: op.label, category: op.category, incomeType: op.kind === 'rentree' ? op.incomeType ?? 'principal' : undefined,
+      plannedItemId: op.plannedItemId,
     });
     if (op.plannedItemId) {
       const p = this.planned.find((x) => x.id === op.plannedItemId);
       if (p) {
+        // Gardé pour pouvoir annuler (« je ne l'ai pas reçu ») : l'échéance redevient attendue.
+        this.settledPlanned.set(`op-${op.clientKey}`, { ...p, amount: op.amount >= p.amount ? p.amount : op.amount, full: op.amount >= p.amount });
         if (op.amount >= p.amount) this.planned = this.planned.filter((x) => x !== p);
         else p.amount -= op.amount;
       }
@@ -280,6 +285,14 @@ export class DemoRepository implements FinanceRepository {
 
   async deleteOperation(id: string) {
     const o = this.editable(id);
+    const back = this.settledPlanned.get(id);
+    if (back) {
+      const { full, ...item } = back;
+      const still = this.planned.find((x) => x.id === item.id);
+      if (still) still.amount += item.amount;
+      else if (full) this.planned.push(item);
+      this.settledPlanned.delete(id);
+    }
     if (o.goalId) {
       const g = this.goals.find((x) => x.id === o.goalId)!;
       const left = g.movements.filter((m) => m.id !== id).reduce((s, m) => s + m.amount, 0);

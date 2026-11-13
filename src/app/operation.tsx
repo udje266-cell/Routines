@@ -16,6 +16,9 @@ function linkedInfo(o: Operation): { why: string; canDelete: boolean } | null {
   if (o.debtId) return { why: 'C’est un remboursement de dette : annulez-le depuis l’onglet Dettes.', canDelete: false };
   if (o.loanId) return { why: 'C’est une opération de crédit : elle peut être supprimée, puis ressaisie si besoin.', canDelete: true };
   if (o.goalId) return { why: 'C’est un mouvement d’épargne : il peut être supprimé, puis refait depuis l’onglet Épargne.', canDelete: true };
+  if (o.plannedItemId) return o.kind === 'rentree'
+    ? { why: 'C’est de l’argent attendu que vous avez marqué « reçu ». Si vous ne l’avez pas reçu, touchez « Je ne l’ai pas reçu » : il redevient attendu.', canDelete: true }
+    : { why: 'C’est une sortie prévue que vous avez marquée « payée ». Si ce n’est pas le cas, annulez-la : elle redevient à payer.', canDelete: true };
   if (o.recurring) return { why: 'C’est le paiement d’une facture du mois : supprimez-le et la facture redeviendra « à payer ».', canDelete: true };
   return null;
 }
@@ -54,8 +57,13 @@ function OperationForm({ id }: { id: string }) {
       router.back();
   }
 
+  const undoPlanned = !!op.plannedItemId;
   function remove() {
-    confirmAction('Supprimer cette opération ?', `${kindLabel} de ${formatFcfa(op!.amount)} du ${formatDateFr(op!.date)}. Vos soldes seront recalculés.`, 'Supprimer',
+    const title = undoPlanned ? (income ? 'Je ne l’ai pas reçu' : 'Je ne l’ai pas payé') : 'Supprimer cette opération ?';
+    const msg = undoPlanned
+      ? `${formatFcfa(op!.amount)} redevient ${income ? 'attendu' : 'à payer'} et vos soldes sont recalculés. Pensez à changer sa date si besoin.`
+      : `${kindLabel} de ${formatFcfa(op!.amount)} du ${formatDateFr(op!.date)}. Vos soldes seront recalculés.`;
+    confirmAction(title, msg, undoPlanned ? 'Confirmer' : 'Supprimer',
       () => w.run((r) => r.deleteOperation(op!.id)).then((ok) => ok && router.back()));
   }
 
@@ -85,7 +93,8 @@ function OperationForm({ id }: { id: string }) {
       {w.error ? <Status tone="risque">{w.error}</Status> : null}
       {editable ? <Button label="Enregistrer les modifications" disabled={w.busy} onPress={save} /> : null}
       {!linked || linked.canDelete ? (
-        <Button label="Supprimer cette opération" variant="secondaire" icon="trash-outline" disabled={w.busy} onPress={remove} />
+        <Button label={undoPlanned ? (income ? 'Je ne l’ai pas reçu' : 'Je ne l’ai pas payé') : 'Supprimer cette opération'} variant="secondaire"
+          icon={undoPlanned ? 'arrow-undo-outline' : 'trash-outline'} disabled={w.busy} onPress={remove} />
       ) : (
         <Button label="Aller aux dettes" variant="secondaire" onPress={() => router.replace('/dettes')} />
       )}

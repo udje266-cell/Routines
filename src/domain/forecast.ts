@@ -132,10 +132,19 @@ export interface Margin {
   missingIncomeDate: boolean;
 }
 
+/**
+ * La « paie » qui borne le calcul du jour : le prochain revenu de chaque mois (salaire), sinon la prochaine rentrée.
+ * Les autres rentrées sûres d'ici là (argent attendu « oui, à cette date ») comptent dans le calcul, à leur date.
+ */
+function mainIncomeIndex(fc: Forecast): number {
+  const salary = fc.events.findIndex((e) => e.item.kind === 'rentree' && !!e.item.recurring);
+  return salary !== -1 ? salary : fc.events.findIndex((e) => e.item.kind === 'rentree');
+}
+
 /** Marge affichée sur « Aujourd'hui » : jusqu'à la prochaine rentrée datée (vue standard). */
 export function marginUntilNextIncome(snap: Snapshot): Margin {
   const fc = forecast(snap, 'standard');
-  const idx = fc.events.findIndex((e) => e.item.kind === 'rentree');
+  const idx = mainIncomeIndex(fc);
   const scope = idx === -1 ? fc.events : fc.events.slice(0, idx);
   const amount = scope.reduce((m, e) => Math.min(m, e.total), fc.start.total);
   return {
@@ -178,5 +187,21 @@ export function safeToSpend(snap: Snapshot, fallbackEnd?: CivilDate): SafeToSpen
   const debtReserve = debtShares(snap.debts ?? [], snap.today, until, (d) => !!(d.dueDate && d.walletId && d.dueDate <= until))
     .reduce((s, d) => s + d.thisMonth, 0);
   const afterBills = m.amount - debtReserve;
-  return { perDay: Math.max(0, Math.floor(afterBills / days)), afterBills, debtReserve, days, until, nextIncome: m.nextIncome };
+  // Par jour : la somme qu'on peut dépenser chaque jour sans qu'aucune facture d'ici la paie ne manque.
+  // L'argent attendu sûr ne sert qu'à partir de sa date : avant, on ne compte que ce qu'on a.
+  const fc = forecast(snap, 'standard');
+  const dayCount = (d: CivilDate) => Math.max(1, Math.round((Date.parse(d) - Date.parse(snap.today)) / 86_400_000) + 1);
+  let perDay = Infinity;
+  let last = fc.start.total;
+  for (const e of fc.events) {
+    if (e.date > until) break;
+    // Dépenses du quotidien jusqu'à la veille de l'événement si c'est une rentrée (elle arrive dans la journée), le jour même sinon.
+    const before = e.item.kind === 'rentree' ? dayCount(e.date) - 1 : dayCount(e.date);
+    // Avant une rentrée, il faut tenir avec ce qu'on avait ; après une sortie, avec ce qui reste.
+    const funds = e.item.kind === 'rentree' ? last : e.total;
+    if (before > 0) perDay = Math.min(perDay, (funds - debtReserve) / before);
+    last = e.total;
+  }
+  perDay = Math.min(perDay, (last - debtReserve) / days);
+  return { perDay: Math.max(0, Math.floor(perDay)), afterBills, debtReserve, days, until, nextIncome: m.nextIncome };
 }

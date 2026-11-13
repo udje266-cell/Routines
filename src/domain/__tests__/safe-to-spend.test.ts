@@ -54,3 +54,29 @@ describe('dettes dans « Je peux dépenser aujourd’hui »', () => {
     expect(safeToSpend({ ...snap, debts: [{ ...debt('X', 50_000), direction: 'on_me_doit' as const }] }).afterBills).toBe(base.afterBills);
   });
 });
+
+describe('argent attendu sûr dans « Je peux dépenser aujourd’hui »', () => {
+  const rule = { id: 'sal', label: 'Salaire', kind: 'rentree' as const, amount: 120_000, day: 25, start: '2026-11-01', walletId: 'w', overrides: {}, settled: [] };
+  const snap: Snapshot = {
+    today: '2026-11-03',
+    wallets: [{ id: 'w', name: 'Wave', kind: 'wave', everyday: true, balance: 22_000 }],
+    planned: [],
+    recurring: [rule],
+  };
+  const attendu = (certainty: 'attendue' | 'incertaine') => ({
+    ...snap, planned: [{ id: 'p', kind: 'rentree' as const, label: 'Client', amount: 44_000, date: '2026-11-13', walletId: 'w', certainty }],
+  });
+
+  it('une rentrée sûre avant la paie augmente ce qu’on peut dépenser (à partir de sa date)', () => {
+    const sans = safeToSpend(snap);
+    const avec = safeToSpend(attendu('attendue'));
+    expect(sans.nextIncome?.label).toBe('Salaire');
+    expect(avec.nextIncome?.label).toBe('Salaire'); // la paie reste la borne
+    expect(sans.perDay).toBe(1_000); // 22 000 F sur 22 jours
+    expect(avec.perDay).toBe(2_200); // 22 000 F tiennent 10 jours avant l’arrivée des 44 000 F (66 000 / 22 = 3 000)
+  });
+
+  it('une rentrée « pas sûr » n’est pas comptée', () => {
+    expect(safeToSpend(attendu('incertaine')).perDay).toBe(safeToSpend(snap).perDay);
+  });
+});
