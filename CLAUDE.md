@@ -49,7 +49,7 @@ Ajouts demandés par l'utilisatrice ou l'utilisateur (hors cahier) : épargne re
 - Intégrité dans un compte : versements, règlements et corrections uniquement depuis/vers un portefeuille du quotidien ; poche d'objectif = portefeuille d'épargne, figée après un versement ; une occurrence réglée doit être une vraie date de la règle.
 
 ## Projet Supabase en ligne
-- Projet `ldfurhmdxvevqwadgfzs` (« Mes Finances », eu-west-1), URL `https://ldfurhmdxvevqwadgfzs.supabase.co`. Migrations jusqu'à `20261118000000_credits` appliquées et inscrites dans `supabase_migrations.schema_migrations` ; tests pgTAP rejoués sur le projet (transactions annulées).
+- Projet `ldfurhmdxvevqwadgfzs` (« Mes Finances », eu-west-1), URL `https://ldfurhmdxvevqwadgfzs.supabase.co`. Migrations jusqu’à `20261119000000_relecture` appliquées et inscrites dans `supabase_migrations.schema_migrations` ; tests pgTAP rejoués sur le projet (transactions annulées).
 - Auth en ligne : mot de passe 8 caractères, confirmation de l'e-mail active, codes à 6 chiffres.
 - E-mails : SMTP Brevo (`smtp-relay.brevo.com:587`, expéditeur « Mes Finances »), modèles `supabase/templates/confirmation.html` et `recuperation.html` appliqués (code à 6 chiffres), 30 e-mails/heure. Envoi réel vérifié. La clé SMTP ne se trouve que dans la configuration Supabase.
 - `.env.local` (ignoré par Git) contient l'URL et la clé publique ; jamais la clé secrète.
