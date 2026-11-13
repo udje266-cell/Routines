@@ -134,11 +134,25 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
   const cashGap: SavingAdvice['cashGap'] = gapDate ? { amount: gapAmount, date: gapDate } : null;
   // Ce qu'il faudra encore avoir à la fin du mois pour les sorties du début du mois suivant (avant la paie).
   const outlook = snap.today.slice(0, 7) === start.slice(0, 7) ? monthEndOutlook(snap) : null;
-  const keepForNext = outlook ? Math.max(0, -outlook.free) : 0;
-  const save = Math.max(0, Math.min(rec, left - (cashGap?.amount ?? 0) - keepForNext));
+  // Ce qui est vraiment libre ce mois-ci : ce que vous aurez le dernier jour (argent déjà là compris),
+  // moins ce qu'il faut garder pour les sorties du début du mois suivant (avant la paie).
+  const keepForNext = outlook ? outlook.earlyNext.total : 0;
+  const free = outlook ? outlook.endBalance - keepForNext : left - (cashGap?.amount ?? 0);
+  const save = Math.max(0, Math.min(rec, free));
   const daysLeft = Math.max(1, Math.round((Date.parse(end) - Date.parse(snap.today)) / 86_400_000) + 1);
   const spentSoFar = all.filter((e) => e.kind === 'sortie' && e.done && !isSaving(e) && !e.planned).reduce((s, e) => s + e.amount, 0);
-  const perDay = Math.max(0, Math.floor((left - save - (cashGap?.amount ?? 0)) / daysLeft));
+  const perDay = Math.max(0, Math.floor((free - save) / daysLeft));
+  // Avant l'arrivée de l'argent attendu, la vie courante ne peut compter que sur ce qui reste après les sorties d'ici là.
+  let tight: { until: CivilDate; perDay: Francs; total: Francs } | null = null;
+  if (mainIncome && saveOn > snap.today) {
+    const fc = forecast(snap);
+    const before = fc.events.filter((e) => e.date < saveOn);
+    // le plus bas atteint d'ici là (l'argent du jour même n'est pas compté s'il arrive dans la période)
+    const low = before.length ? Math.min(...before.map((e) => e.total)) : fc.start.total;
+    const days = Math.max(1, Math.round((Date.parse(saveOn) - Date.parse(snap.today)) / 86_400_000));
+    const tp = Math.max(0, Math.floor(low / days));
+    if (low >= 0 && tp < perDay) tight = { until: addDays(saveOn, -1), perDay: tp, total: Math.max(0, low) };
+  }
 
   const steps: string[] = [];
   if (cashGap && left >= 0) {
@@ -166,7 +180,11 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
     steps.push(mainIncome
       ? `Le jour où vous recevez « ${mainIncome.label} », mettez tout de suite ${F(save)} de côté, avant toute dépense.`
       : `Mettez ${F(save)} de côté dès aujourd’hui, avant toute dépense.`);
-    steps.push(`Pour le reste du mois, dépensez au plus ${F(perDay)} par jour pour la vie courante (nourriture, transport, sorties).`);
+    if (tight) {
+      const u = tight.until;
+      steps.push(`D’ici le ${u.slice(8)}-${u.slice(5, 7)}, une fois vos sorties payées, il ne vous restera que ${F(tight.total)} pour vivre : au plus ${F(tight.perDay)} par jour jusque-là.`);
+      steps.push(`Ensuite, dépensez au plus ${F(perDay)} par jour pour la vie courante (nourriture, transport, sorties).`);
+    } else steps.push(`Pour le reste du mois, dépensez au plus ${F(perDay)} par jour pour la vie courante (nourriture, transport, sorties).`);
     if (save < rec) steps.push(`L’idéal serait ${F(rec)} : réduisez une dépense pour vous en rapprocher.`);
     if (spentSoFar > 0) steps.push(`Vous avez déjà dépensé ${F(spentSoFar)} au quotidien ce mois-ci.`);
   } else {
@@ -175,9 +193,9 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
 
   if (outlook && outlook.earlyNext.total > 0 && left >= 0) {
     const d = outlook.earlyNext.until;
-    steps.push(keepForNext > 0
-      ? `Gardez de côté ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}) : il vous manquera ${F(keepForNext)} d’ici le ${d.slice(8)}-${d.slice(5, 7)}.`
-      : `À la fin du mois, gardez ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}).`);
+    steps.push(outlook.free < 0
+      ? `Gardez de côté ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}) : il vous manquera ${F(-outlook.free)} d’ici le ${d.slice(8)}-${d.slice(5, 7)}.`
+      : `Gardez ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}) : ne les dépensez pas d’ici là.`);
   }
 
   return { start, end, days, income, expenses, savingsPlanned, debtReserve, debtPayments, debtTotal, debts, left,

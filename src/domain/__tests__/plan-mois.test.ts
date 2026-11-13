@@ -28,7 +28,8 @@ it('combien et quand économiser', () => {
   expect(p).toMatchObject({ income: 120_000, expenses: 55_000, left: 65_000 });
   // 20 % de 120 000 F = 24 000 F, à mettre de côté le jour du salaire
   expect(p.advice).toMatchObject({ save: 24_000, saveOn: '2026-11-25' });
-  expect(p.advice.perDay).toBe(Math.floor((65_000 - 24_000) / 28));
+  // 130 000 F le 30-11, moins 50 000 F à garder pour début décembre, moins 24 000 F épargnés, sur 28 jours
+  expect(p.advice.perDay).toBe(Math.floor((130_000 - 50_000 - 24_000) / 28));
   expect(p.advice.steps[0]).toMatch(/« Salaire ».*24 000 F/);
 });
 
