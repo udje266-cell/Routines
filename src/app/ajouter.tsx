@@ -28,8 +28,22 @@ const TITLE: Record<Type, string> = {
   mensuelle: 'Montant chaque mois', sortie: 'Montant à payer', rentree: 'Montant attendu', portefeuille: 'Combien y a-t-il dessus aujourd’hui ?',
 };
 
+const TYPES: Type[] = ['depense', 'revenu', 'transfert', 'mensuelle', 'sortie', 'rentree', 'portefeuille'];
+
 export default function Ajouter() {
-  const params = useLocalSearchParams<{ type?: Type; sens?: 'sortie' | 'rentree'; date?: string }>();
+  const { snapshot } = useFinance();
+  if (!snapshot) return <Screen><Status tone="attention">Chargement…</Status></Screen>;
+  return <AjouterForm />;
+}
+
+function AjouterForm() {
+  // Paramètres venus d'un lien : seules les valeurs connues sont retenues.
+  const raw = useLocalSearchParams<{ type?: string; sens?: string; date?: string }>();
+  const params = {
+    type: TYPES.includes(raw.type as Type) ? (raw.type as Type) : undefined,
+    sens: raw.sens === 'sortie' || raw.sens === 'rentree' ? (raw.sens as 'sortie' | 'rentree') : undefined,
+    date: raw.date,
+  };
   const { snapshot } = useFinance();
   const today = snapshot?.today ?? '2026-01-01';
   const wallets = snapshot?.wallets ?? [];
@@ -92,7 +106,7 @@ export default function Ajouter() {
         default:
           return repo.addPlanned({ kind: type, label, amount, date, walletId, certainty: type === 'rentree' ? sure : undefined, source: type === 'rentree' ? 'revenu' : 'facture' });
       }
-    });
+    }, { type, name, kind, amount, date, walletId, category, incomeType, sure, day, toWalletId, fee, monthlyKind });
     if (ok) router.back();
   }
 

@@ -94,7 +94,7 @@ export class SupabaseRepository implements FinanceRepository {
         id: r.id, label: r.label, kind: r.kind, amount: Number(r.amount), day: r.day, start: r.start_date, end: r.end_date ?? undefined,
         walletId: r.wallet_id, category: r.category ?? undefined,
         overrides: Object.fromEntries((r.recurring_overrides as Row[]).map((o) => [o.original_date, {
-          date: o.new_date ?? undefined, amount: o.new_amount ? Number(o.new_amount) : undefined, skip: o.skip,
+          date: o.new_date ?? undefined, amount: o.new_amount != null ? Number(o.new_amount) : undefined, skip: o.skip,
         }])),
         settled: operations.filter((o) => o.recurring?.ruleId === r.id).map((o) => o.recurring!.original),
       })),

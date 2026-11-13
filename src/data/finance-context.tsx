@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { buildReminders, todayAbidjan, type Snapshot } from '@/domain';
@@ -64,13 +64,19 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, [snapshot, prefs, repo]);
 
 
+  // Dépôt actif : une lecture terminée après une déconnexion ou un changement de compte est ignorée.
+  const active = useRef<FinanceRepository | null>(null);
+
   const load = useCallback(async (r: FinanceRepository) => {
     setStatus((s) => (s === 'pret' ? s : 'chargement'));
     try {
-      setSnapshot(await r.loadSnapshot(todayAbidjan()));
+      const snap = await r.loadSnapshot(todayAbidjan());
+      if (active.current !== r) return;
+      setSnapshot(snap);
       setStatus('pret');
       setError(null);
     } catch (e) {
+      if (active.current !== r) return;
       setStatus(e instanceof ConnectionRequiredError ? 'connexion_requise' : 'erreur');
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -78,6 +84,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   const select = useCallback(
     (r: FinanceRepository | null) => {
+      active.current = r;
       setRepo(r);
       if (r) load(r);
       else {

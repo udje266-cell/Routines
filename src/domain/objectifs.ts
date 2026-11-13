@@ -70,8 +70,10 @@ export function goalSchedule(g: SavingsGoal, today: CivilDate, capacity?: Francs
   const remaining = goalRemaining(g);
   if (remaining === 0 || g.status !== 'actif') return { installments: [], perInstallment: 0, suggestedDate: null };
 
-  const dates = monthlyDatesBetween(today, g.date, g.plannedDay);
-  const per = dates.length ? Math.ceil(remaining / dates.length) : remaining;
+  const all = monthlyDatesBetween(today, g.date, g.plannedDay);
+  const per = all.length ? Math.ceil(remaining / all.length) : remaining;
+  // L'arrondi au franc supérieur peut atteindre le but avant la dernière date : on s'arrête là (jamais de versement nul ou négatif).
+  const dates = all.slice(0, Math.ceil(remaining / Math.max(1, per)));
   const tooHigh = capacity !== undefined && capacity > 0 && per > capacity;
 
   if (dates.length === 0 || tooHigh) {

@@ -11,10 +11,18 @@ import { ConnectionRequiredError, RefusedError, type FinanceRepository } from '.
 export function useWrite(prefix: string) {
   const { write } = useFinance();
   const key = useRef<string | null>(null);
+  const content = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function run(fn: (repo: FinanceRepository, clientKey: string) => Promise<void>): Promise<boolean> {
+  /**
+   * `payload` : le contenu saisi. S'il a changé depuis l'essai précédent, c'est une nouvelle intention :
+   * nouvelle clé, pour qu'une correction ne soit pas confondue avec un premier envoi peut-être déjà enregistré.
+   */
+  async function run(fn: (repo: FinanceRepository, clientKey: string) => Promise<void>, payload?: unknown): Promise<boolean> {
+    const c = payload === undefined ? null : JSON.stringify(payload);
+    if (c !== content.current) key.current = null;
+    content.current = c;
     key.current ??= newClientKey(prefix);
     setBusy(true);
     setError(null);

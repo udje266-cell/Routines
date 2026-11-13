@@ -49,11 +49,13 @@ export function MonthCalendar({ plan, today, selected, onSelect }: {
   const days = dayList(plan.start, plan.end);
   const [, m] = plan.start.split('-').map(Number);
 
-  // Faire apparaître aujourd'hui dans la bande au premier affichage.
+  // Faire apparaître aujourd'hui (au premier affichage, au passage de minuit et quand le mois change).
+  const todayIndex = days.indexOf(today);
   useEffect(() => {
-    const i = days.indexOf(today);
-    if (i > 2) setTimeout(() => scroller.current?.scrollTo({ x: (i - 2) * 52, animated: false }), 0);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (todayIndex <= 2) return;
+    const t = setTimeout(() => scroller.current?.scrollTo({ x: (todayIndex - 2) * 52, animated: false }), 0);
+    return () => clearTimeout(t);
+  }, [todayIndex, plan.start]);
 
   const cell = (d: CivilDate, size: number) => {
     const sel = d === selected;
@@ -186,7 +188,7 @@ export function PlanCard({ plan }: { plan: MonthPlan }) {
         </View>
       ) : null}
       {a.steps.map((t, i) => (
-        <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
+        <View key={t} style={{ flexDirection: 'row', gap: 8 }}>
           <Text style={{ fontSize: 15, fontWeight: '800', color: C.violet }}>{i + 1}.</Text>
           <Text style={{ flex: 1, fontSize: 15, color: C.texte, lineHeight: 21 }}>{t}</Text>
         </View>

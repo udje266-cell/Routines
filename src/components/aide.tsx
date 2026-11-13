@@ -63,19 +63,19 @@ export function Aide({ k, size = 22 }: { k: AideKey; size?: number }) {
 function Bulle({ visible, onClose, titre, texte, footer }: { visible: boolean; onClose(): void; titre: string; texte: string; footer?: React.ReactNode }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(30,24,59,0.55)', justifyContent: 'center', padding: 20 }}>
-        <Pressable onPress={() => {}} style={{ backgroundColor: C.carte, borderRadius: 22, padding: 22, gap: 14 }} accessibilityViewIsModal>
+      <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer" style={{ flex: 1, backgroundColor: 'rgba(30,24,59,0.55)', justifyContent: 'center', padding: 20 }}>
+        <View onStartShouldSetResponder={() => true} style={{ backgroundColor: C.carte, borderRadius: 22, padding: 22, gap: 14 }} accessibilityViewIsModal>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Ionicons name="bulb-outline" size={24} color={C.violet} />
             <Text style={{ flex: 1, fontSize: 20, fontWeight: '800', color: C.texte }} accessibilityRole="header">{titre}</Text>
           </View>
           <Text style={{ fontSize: 16, lineHeight: 23, color: C.texte }}>{texte}</Text>
           {footer ?? (
-            <Pressable onPress={onClose} accessibilityRole="button" style={{ backgroundColor: C.violet, borderRadius: 14, padding: 14, alignItems: 'center' }}>
+            <Pressable onPress={onClose} accessibilityRole="button" style={{ backgroundColor: C.violet, borderRadius: 14, padding: 14, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>J’ai compris</Text>
             </Pressable>
           )}
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );

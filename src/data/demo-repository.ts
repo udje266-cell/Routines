@@ -111,11 +111,17 @@ export class DemoRepository implements FinanceRepository {
   }
 
   private apply(o: Operation) {
-    const w = (id?: string) => this.wallets.find((x) => x.id === id);
-    if (o.kind === 'rentree') w(o.walletId)!.balance += o.amount;
+    const w = (id?: string) => {
+      const x = this.wallets.find((y) => y.id === id);
+      if (!x) throw new RefusedError('Ce compte n’existe plus.');
+      return x;
+    };
+    const from = w(o.walletId);
+    const to = o.kind === 'transfert' ? w(o.toWalletId) : null;
+    if (o.kind === 'rentree') from.balance += o.amount;
     else {
-      w(o.walletId)!.balance -= o.amount + (o.fee ?? 0);
-      if (o.kind === 'transfert') w(o.toWalletId)!.balance += o.amount;
+      from.balance -= o.amount + (o.fee ?? 0);
+      if (to) to.balance += o.amount;
     }
     this.ops.push(o);
   }

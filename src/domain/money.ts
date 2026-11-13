@@ -15,7 +15,10 @@ export function formatFcfa(n: Francs): string {
 
 /** « 30 000 », « 30000 F » → 30000 ; null si invalide. */
 export function parseFcfa(text: string): Francs | null {
-  const clean = text.replace(/[\s  .F]/gi, '');
+  const t = text.trim().replace(/\s*F(CFA)?$/i, '').replace(/[\s  ]/g, '');
+  // Le point n'est accepté que comme séparateur de milliers (« 30.000 ») : « 1.5 » est refusé, pas lu 15.
+  if (t.includes('.') && !/^\d{1,3}(\.\d{3})+$/.test(t)) return null;
+  const clean = t.replace(/\./g, '');
   if (!/^\d{1,12}$/.test(clean)) return null;
   return Number(clean);
 }

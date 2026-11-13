@@ -125,8 +125,8 @@ export function DateField({ label, value, onChange, today, min, max }: {
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={s.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Fermer le calendrier">
-          <Pressable style={s.sheet} onPress={() => {}}>
+        <Pressable style={s.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Fermer le calendrier" accessibilityRole="button">
+          <View style={s.sheet} onStartShouldSetResponder={() => true} accessibilityViewIsModal>
             <Text style={s.sheetTitle} accessibilityRole="header">{label}</Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {[['Aujourd’hui', today], ['Demain', addDays(today, 1)]].filter(([, d]) => allowed(d)).map(([t, d]) => (
@@ -162,7 +162,7 @@ export function DateField({ label, value, onChange, today, min, max }: {
                 );
               })}
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </View>
@@ -181,8 +181,8 @@ export function DayOfMonthField({ label, value, onChange }: { label: string; val
         <Ionicons name="chevron-forward" size={20} color={C.secondaire} />
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={s.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Fermer">
-          <Pressable style={s.sheet} onPress={() => {}}>
+        <Pressable style={s.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Fermer" accessibilityRole="button">
+          <View style={s.sheet} onStartShouldSetResponder={() => true} accessibilityViewIsModal>
             <Text style={s.sheetTitle} accessibilityRole="header">{label}</Text>
             <View style={s.grid}>
               {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
@@ -193,7 +193,7 @@ export function DayOfMonthField({ label, value, onChange }: { label: string; val
               ))}
             </View>
             {value > 28 ? <Text style={s.hint}>Les mois plus courts, ce sera le dernier jour du mois.</Text> : null}
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </View>
@@ -250,13 +250,13 @@ export function TileChoice<T extends string>({ label, options, value, onChange, 
         <Ionicons name="chevron-forward" size={20} color={C.secondaire} />
       </Pressable>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={s.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Fermer">
-          <Pressable style={s.sheet} onPress={() => {}}>
+        <Pressable style={s.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Fermer" accessibilityRole="button">
+          <View style={s.sheet} onStartShouldSetResponder={() => true} accessibilityViewIsModal>
             <Text style={s.sheetTitle} accessibilityRole="header">{label}</Text>
             <ScrollView style={{ maxHeight: 460 }}>
               <RadioList options={options} value={value} onChange={(v) => { onChange(v); setOpen(false); }} />
             </ScrollView>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </View>

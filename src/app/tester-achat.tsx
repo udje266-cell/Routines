@@ -12,13 +12,28 @@ import { CATEGORY_TILES, categoryLabel, walletIcon } from '@/lib/categories';
 
 
 export default function TesterAchat() {
+  const { snapshot } = useFinance();
+  if (!snapshot) return <Screen><Label>Chargement…</Label></Screen>;
+  return <TesterAchatForm />;
+}
+
+/** Montant venu d'un lien : entier strictement positif, sinon ignoré. */
+function cleanAmount(v?: string): number | null {
+  if (!v || !/^\d{1,12}$/.test(v)) return null;
+  const n = Number(v);
+  return n > 0 ? n : null;
+}
+
+function TesterAchatForm() {
   const { snapshot, write } = useFinance();
-  // Reprise d'un achat en pause : montant, catégorie et portefeuille conservés.
+  // Reprise d'un achat en pause : montant, catégorie et portefeuille conservés (vérifiés : ils viennent d'un lien).
   const params = useLocalSearchParams<{ intentId?: string; amount?: string; category?: string; walletId?: string }>();
   const today = snapshot?.today ?? '';
-  const [amount, setAmount] = useState<number | null>(params.amount ? Number(params.amount) : null);
-  const [category, setCategory] = useState(params.category ?? 'Sorties');
-  const [walletId, setWalletId] = useState(params.walletId ?? snapshot?.wallets.find((w) => w.everyday)?.id ?? '');
+  const everyday = (snapshot?.wallets ?? []).filter((w) => w.everyday);
+  const intentId = (snapshot?.intents ?? []).some((i) => i.id === params.intentId) ? params.intentId : undefined;
+  const [amount, setAmount] = useState<number | null>(cleanAmount(params.amount));
+  const [category, setCategory] = useState(CATEGORY_TILES.some((c) => c.value === params.category) ? params.category! : 'Sorties');
+  const [walletId, setWalletId] = useState(everyday.some((w) => w.id === params.walletId) ? params.walletId! : everyday[0]?.id ?? '');
   const [date, setDate] = useState(today);
   // Une clé par intention d'écriture, conservée en cas de réessai après coupure.
   const [clientKey] = useState(() => newClientKey('achat'));
@@ -46,11 +61,11 @@ export default function TesterAchat() {
     setError(null);
     try {
       await write(async (repo) => {
-        if (params.intentId) {
+        if (intentId) {
           // Achat repris depuis la pause : on met à jour la même intention.
           if (kind === 'acheter') await repo.recordOperation({ clientKey, kind: 'sortie', walletId, amount: value, date, label: categoryLabel(category), category });
           const status = kind === 'acheter' ? 'achete' : kind === 'pause' ? 'en_pause' : kind === 'reporter' ? 'replanifie' : 'abandonne';
-          return repo.updateIntent(params.intentId, status, kind === 'pause' ? addDays(today, 1) : newDate);
+          return repo.updateIntent(intentId, status, kind === 'pause' ? addDays(today, 1) : newDate);
         }
         return kind === 'acheter'
           ? repo.recordOperation({ clientKey, kind: 'sortie', walletId, amount: value, date, label: categoryLabel(category), category })

@@ -121,7 +121,8 @@ export function unusualSpends(ops: Operation[], today: CivilDate): Operation[] {
     if (o.date < addDays(today, -30)) return false;
     const same = spends.filter((x) => x.id !== o.id && (x.category ?? 'Autre') === (o.category ?? 'Autre')).map((x) => x.amount).sort((a, b) => a - b);
     if (same.length < 5) return false;
-    const median = same[Math.floor(same.length / 2)];
+    const mid = Math.floor(same.length / 2);
+    const median = same.length % 2 ? same[mid] : (same[mid - 1] + same[mid]) / 2;
     return o.amount > median * 2.5;
   });
 }

@@ -42,7 +42,8 @@ export function spendingPace(p: PaceInput): PaceReport {
   const smalls = p.extraIncomes.filter((f) => inCycle(f) && f.amount <= threshold);
   const cycleDays = diffDays(p.cycleStart, p.cycleEnd) + 1;
   const daysElapsed = diffDays(p.cycleStart, p.today) + 1;
-  const daysLeft = Math.max(0, diffDays(p.today, p.cycleEnd));
+  // Aujourd'hui compris, comme safeToSpend et monthPlan.
+  const daysLeft = Math.max(0, diffDays(p.today, p.cycleEnd) + 1);
   const projectedSpend = Math.round((spent / daysElapsed) * cycleDays);
   const overrun = Math.max(0, projectedSpend - p.plannedSpend);
   const dailyAllowance = daysLeft === 0 ? 0 : Math.max(0, Math.floor((p.plannedSpend - spent) / daysLeft));

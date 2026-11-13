@@ -23,6 +23,13 @@ function linkedInfo(o: Operation): { why: string; canDelete: boolean } | null {
 /** Modifier ou supprimer une entrée ou une sortie. */
 export default function OperationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { snapshot, status } = useFinance();
+  if (!snapshot) return <Screen><Label muted>{status === 'chargement' ? 'Chargement…' : 'Données indisponibles.'}</Label></Screen>;
+  // Le formulaire n'est monté qu'avec ses données : ses valeurs de départ sont toujours remplies.
+  return <OperationForm key={id} id={id} />;
+}
+
+function OperationForm({ id }: { id: string }) {
   const { snapshot } = useFinance();
   const op = (snapshot?.operations ?? []).find((o) => o.id === id);
   const wallets = snapshot?.wallets ?? [];
@@ -43,7 +50,7 @@ export default function OperationScreen() {
 
   async function save() {
     if (!amount) return w.setError('Indiquez le montant.');
-    if (await w.run((r) => r.updateOperation(op!.id, { amount, date, label: note.trim() || categoryLabel(category), category: op!.kind === 'sortie' ? category : op!.category, walletId })))
+    if (await w.run((r) => r.updateOperation(op!.id, { amount, date, label: note.trim() || categoryLabel(category), category: op!.kind === 'sortie' ? category : op!.category, walletId }), { amount, date, note, category, walletId }))
       router.back();
   }
 
