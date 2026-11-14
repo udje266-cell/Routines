@@ -11,7 +11,7 @@ export function allPlanned(snap: Snapshot): PlannedItem[] {
   return [
     ...snap.planned,
     ...recurringToPlanned(snap.recurring ?? [], snap.today, addDays(snap.today, HORIZON_DAYS - 1)),
-    ...debtsToPlanned(snap.debts ?? []),
+    ...debtsToPlanned(snap.debts ?? [], snap.wallets.find((w) => w.everyday)?.id),
     ...(snap.loans ?? []).filter((l) => l.status === 'en_cours').flatMap((l) => loanToPlanned(l, l.paid, l.extras)),
     ...goalsToPlanned(snap.goals ?? [], snap.today),
   ];
@@ -137,8 +137,10 @@ export interface Margin {
  * Les autres rentrées sûres d'ici là (argent attendu « oui, à cette date ») comptent dans le calcul, à leur date.
  */
 function mainIncomeIndex(fc: Forecast): number {
-  const salary = fc.events.findIndex((e) => e.item.kind === 'rentree' && !!e.item.recurring);
-  return salary !== -1 ? salary : fc.events.findIndex((e) => e.item.kind === 'rentree');
+  // Une rentrée qui arrive aujourd'hui compte déjà comme fonds : la borne est la suivante.
+  const after = (e: ForecastEvent) => e.item.kind === 'rentree' && e.date > fc.from;
+  const salary = fc.events.findIndex((e) => after(e) && !!e.item.recurring);
+  return salary !== -1 ? salary : fc.events.findIndex(after);
 }
 
 /** Marge affichée sur « Aujourd'hui » : jusqu'à la prochaine rentrée datée (vue standard). */
@@ -186,7 +188,7 @@ export function safeToSpend(snap: Snapshot, fallbackEnd?: CivilDate): SafeToSpen
   const until = m.nextIncome ? addDays(m.nextIncome.date, -1) : fallbackEnd ?? addDays(snap.today, 29);
   const days = Math.max(1, Math.round((Date.parse(until) - Date.parse(snap.today)) / 86_400_000) + 1);
   // Dettes déjà dans la prévision avant la paie (datées, avec un compte) : déjà retirées de la marge.
-  const debtReserve = debtShares(snap.debts ?? [], snap.today, until, (d) => !!(d.dueDate && d.walletId && d.dueDate <= until))
+  const debtReserve = debtShares(snap.debts ?? [], snap.today, until, (d) => !!(d.dueDate && (d.walletId || snap.wallets.some((w) => w.everyday)) && d.dueDate <= until))
     .reduce((s, d) => s + d.thisMonth, 0);
   const afterBills = m.amount - debtReserve;
   // Par jour : la somme qu'on peut dépenser chaque jour sans qu'aucune facture d'ici la paie ne manque.

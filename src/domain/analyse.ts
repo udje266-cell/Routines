@@ -165,10 +165,8 @@ export function ratios(snap: Snapshot): Ratios {
     const next = amortization(l, l.extras).find((r) => !l.paid.includes(r.n));
     return s + (next ? next.payment + next.insurance : 0);
   }, 0);
-  const end = addDays(snap.today, 29);
-  const oneOff = snap.planned.filter((p) => p.kind === 'sortie' && p.date >= snap.today && p.date <= end).reduce((s, p) => s + p.amount, 0);
   const fixedCharges = Math.max(monthlyFixedTotal(snap.recurring ?? [], snap.today),
-    (snap.recurring ?? []).filter((r) => r.kind === 'sortie' && active(r)).reduce((s, r) => s + r.amount, 0)) + loanPayments + oneOff;
+    (snap.recurring ?? []).filter((r) => r.kind === 'sortie' && active(r)).reduce((s, r) => s + r.amount, 0)) + loanPayments;
   const { end: monthEnd } = monthBounds(snap.today);
   const personalDebtMonth = debtShares(snap.debts ?? [], snap.today, monthEnd).reduce((s, d) => s + d.thisMonth, 0);
   const personalDebts = (snap.debts ?? []).filter((d) => d.direction === 'je_dois').reduce((s, d) => s + remainingOf(d), 0);

@@ -52,8 +52,10 @@ export function statusAfterPayments(d: Debt): DebtStatus {
 }
 
 /** Dettes ouvertes et datées → échéances : je dois = sortie prévue, on me doit = rentrée (incertaine par défaut). */
-export function debtsToPlanned(debts: Debt[]): PlannedItem[] {
+export function debtsToPlanned(debts: Debt[], defaultWalletId?: string): PlannedItem[] {
+  // Une dette datée sans compte choisi passe sur le premier compte du quotidien : elle ne doit pas disparaître des calculs.
   return debts
+    .map((d) => (d.walletId || !defaultWalletId ? d : { ...d, walletId: defaultWalletId }))
     .filter((d) => d.status === 'ouverte' && d.dueDate && d.walletId && remainingOf(d) > 0)
     .map((d) =>
       d.direction === 'je_dois'

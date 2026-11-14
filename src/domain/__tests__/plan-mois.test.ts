@@ -28,9 +28,11 @@ it('combien et quand économiser', () => {
   expect(p).toMatchObject({ income: 120_000, expenses: 55_000, left: 65_000 });
   // 20 % de 120 000 F = 24 000 F, à mettre de côté le jour du salaire
   expect(p.advice).toMatchObject({ save: 24_000, saveOn: '2026-11-25' });
-  // 130 000 F le 30-11, moins 50 000 F à garder pour début décembre, moins 24 000 F épargnés, sur 28 jours
-  expect(p.advice.perDay).toBe(Math.floor((130_000 - 50_000 - 24_000) / 28));
-  expect(p.advice.steps[0]).toMatch(/« Salaire ».*24 000 F/);
+  // Même calcul que l'accueil : jusqu'au 24-11, 10 000 F pour 22 jours (après loyer et CIE) ; ensuite le salaire,
+  // moins 24 000 F d'épargne et 50 000 F gardés pour début décembre.
+  expect(p.budget.segments.map((g) => [g.from, g.until, g.perDay])).toEqual([['2026-11-03', '2026-11-24', 454], ['2026-11-25', '2026-11-30', 7_668]]);
+  expect(p.budget.today).toBe(454);
+  expect(p.advice.steps[0]).toMatch(/25-11.*Salaire.*24.000.F/);
 });
 
 it('le moment compte : s’il manque de l’argent avant la paie, on comble d’abord', () => {
@@ -38,8 +40,9 @@ it('le moment compte : s’il manque de l’argent avant la paie, on comble d’
   const p = monthPlan({ ...snap, wallets: [{ ...snap.wallets[0], balance: 20_000 }] });
   expect(p.left).toBe(65_000);
   expect(p.advice.cashGap).toEqual({ amount: 30_000, date: '2026-11-05' });
-  expect(p.advice.save).toBe(24_000); // 65 000 − 30 000 = 35 000 F disponibles, 24 000 F conseillés
-  expect(p.advice.steps[0]).toMatch(/D’abord.*05-11.*30\u00a0000\u00a0F/);
+  expect(p.advice.save).toBe(0); // pas d'épargne tant que l'argent manque
+  expect(p.budget.today).toBe(0);
+  expect(p.advice.steps[0]).toMatch(/Attention.*05-11.*30.000.F/);
   expect(p.advice.steps[1]).toMatch(/Loyer/);
 });
 
@@ -47,7 +50,7 @@ it('mois déficitaire : pas d’épargne, quoi reporter', () => {
   const p = monthPlan({ ...snap, recurring: [rule('sal', 'Salaire', 'rentree', 30_000, 25), rule('loyer', 'Loyer', 'sortie', 40_000, 5)] });
   expect(p.advice.save).toBe(0);
   expect(p.advice.shortBy).toBe(15_000);
-  expect(p.advice.steps[1]).toMatch(/Loyer/);
+  expect(p.advice.steps.join(' ')).toMatch(/dépassent vos entrées de 15.000.F.*Loyer/);
 });
 
 describe('dettes dans le plan du mois', () => {
@@ -66,7 +69,10 @@ describe('dettes dans le plan du mois', () => {
 
   it('une dette datée plus tard est répartie jusqu’à sa date ; échue ou sans compte, tout est dû', () => {
     expect(monthPlan({ ...snap, debts: [debt('Koffi', 60_000, '2027-01-20', 'w')] }).debtReserve).toBe(20_000);
-    expect(monthPlan({ ...snap, debts: [debt('Yao', 15_000, '2026-10-01')] }).debtReserve).toBe(15_000);
+    // échue et sans compte : elle passe sur le compte du quotidien, aujourd'hui, dans le calendrier
+    const y = monthPlan({ ...snap, debts: [debt('Yao', 15_000, '2026-10-01')] });
+    expect([y.debtReserve, y.debtPayments, y.debtTotal]).toEqual([0, 15_000, 15_000]);
+    expect(y.advice.steps[0]).toMatch(/Yao.*en retard/);
   });
 
   it('une dette datée dans le mois avec un compte n’est pas comptée deux fois', () => {
@@ -90,7 +96,7 @@ it('fin du mois : solde ce jour-là, puis ce qu’il faut garder pour le début 
   const o = monthEndOutlook(snap);
   expect(o.end).toBe('2026-11-30');
   expect(o.endBalance).toBe(60_000 - 40_000 - 10_000 + 120_000); // 130 000 F le 30-11
-  expect(o.earlyNext.until).toBe('2026-12-24'); // jusqu’à la veille de la paie de décembre
+  expect(o.earlyNext.until).toBe('2026-12-25'); // jusqu’au jour de la paie de décembre (les sorties passent avant)
   expect(o.earlyNext.items.map((i) => i.label)).toEqual(['Loyer', 'CIE']);
   expect(o.free).toBe(130_000 - 50_000);
 });

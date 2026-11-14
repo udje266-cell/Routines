@@ -98,7 +98,8 @@ export function goalSchedule(g: SavingsGoal, today: CivilDate, capacity?: Francs
 /** Versements prévus des objectifs actifs → transferts prévus du quotidien vers la poche d'épargne. */
 export function goalsToPlanned(goals: SavingsGoal[], today: CivilDate): PlannedItem[] {
   return goals
-    .filter((g) => g.status === 'actif' && g.fromWalletId)
+    // Un objectif dont la date est passée ne prévoit plus rien tant qu'une nouvelle date n'est pas choisie.
+    .filter((g) => g.status === 'actif' && g.fromWalletId && g.date >= today)
     .flatMap((g) =>
       goalSchedule(g, today).installments.map((it, i): PlannedItem => ({
         id: `objectif-${g.id}-${i}`, kind: 'transfert', label: `Épargne : ${g.name}`, amount: it.amount, date: it.date,

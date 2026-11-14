@@ -1,7 +1,8 @@
+import { dailyBudget, type DailyBudget } from './budget';
 import { adviseSavings } from './epargne';
 import { addDays, type CivilDate } from './dates';
 import { debtShares, type DebtShare } from './dettes';
-import { allPlanned, dailyMinimum, forecast } from './forecast';
+import { allPlanned, forecast } from './forecast';
 import type { Francs } from './money';
 import { progressOf } from './objectifs';
 import { incomeStats } from './revenus';
@@ -44,6 +45,8 @@ export interface MonthPlan {
   /** Ce qu'il reste une fois tout payé (dettes comprises), avant l'épargne. */
   left: Francs;
   advice: SavingAdvice;
+  /** Le budget du jour, partagé par l'accueil et l'Agenda. */
+  budget: DailyBudget;
 }
 
 export interface SavingAdvice {
@@ -118,87 +121,66 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
     // Les remboursements de dettes passent avant l'épargne : ils réduisent la capacité d'épargne.
     goals: (snap.goals ?? []).filter((g) => g.status === 'actif').map((g) => ({ id: g.id, name: g.name, target: g.target, saved: progressOf(g), date: g.date })),
   }).recommended;
-  const mainIncome = all.filter((e) => e.kind === 'entree' && !e.done && e.planned).sort((a, b) => b.amount - a.amount)[0];
+  // L'argent principal du mois : le salaire s'il tombe dans le mois, sinon la plus grosse entrée attendue.
+  const incoming = all.filter((e) => e.kind === 'entree' && !e.done && e.planned);
+  const mainIncome = incoming.find((e) => e.planned!.recurring) ?? [...incoming].sort((a, b) => b.amount - a.amount)[0];
   const saveOn = mainIncome?.planned ? (mainIncome.planned.date < snap.today ? snap.today : mainIncome.planned.date) : snap.today;
 
-  // Le moment compte : s'il manque de l'argent avant que la paie arrive, il faut d'abord combler ce trou.
-  let gapAmount = 0;
-  let gapDate: CivilDate | null = null;
-  for (const [d, v] of dailyMinimum(forecast(snap), '*')) {
-    if (d > end || (mainIncome && d >= saveOn)) break;
-    if (v < 0) {
-      gapDate ??= d; // premier jour où l'argent manque
-      gapAmount = Math.max(gapAmount, -v); // plus gros manque avant la paie
-    }
-  }
-  const cashGap: SavingAdvice['cashGap'] = gapDate ? { amount: gapAmount, date: gapDate } : null;
-  // Ce qu'il faudra encore avoir à la fin du mois pour les sorties du début du mois suivant (avant la paie).
-  const outlook = snap.today.slice(0, 7) === start.slice(0, 7) ? monthEndOutlook(snap) : null;
-  // Ce qui est vraiment libre ce mois-ci : ce que vous aurez le dernier jour (argent déjà là compris),
-  // moins ce qu'il faut garder pour les sorties du début du mois suivant (avant la paie).
+  // Fin du mois : ce qu'il faut garder pour les sorties du début du mois suivant (avant la paie).
+  const current = snap.today.slice(0, 7) === start.slice(0, 7);
+  const outlook = current ? monthEndOutlook(snap) : null;
   const keepForNext = outlook ? outlook.earlyNext.total : 0;
-  const free = outlook ? outlook.endBalance - keepForNext : left - (cashGap?.amount ?? 0);
-  const save = Math.max(0, Math.min(rec, free));
-  const daysLeft = Math.max(1, Math.round((Date.parse(end) - Date.parse(snap.today)) / 86_400_000) + 1);
+  const budget = dailyBudget(snap, { end, recommended: rec, debtReserve, nextMonth: keepForNext, saveOn, saveFundedBy: mainIncome?.planned?.id });
+  const { save, shortage } = budget;
+  const cashGap: SavingAdvice['cashGap'] = shortage;
+  const segs = budget.segments;
+  const perDay = segs.length ? segs[segs.length - 1].perDay : 0;
   const spentSoFar = all.filter((e) => e.kind === 'sortie' && e.done && !isSaving(e) && !e.planned).reduce((s, e) => s + e.amount, 0);
-  const perDay = Math.max(0, Math.floor((free - save) / daysLeft));
-  // Avant l'arrivée de l'argent attendu, la vie courante ne peut compter que sur ce qui reste après les sorties d'ici là.
-  let tight: { until: CivilDate; perDay: Francs; total: Francs } | null = null;
-  if (mainIncome && saveOn > snap.today) {
-    const fc = forecast(snap);
-    const before = fc.events.filter((e) => e.date < saveOn);
-    // le plus bas atteint d'ici là (l'argent du jour même n'est pas compté s'il arrive dans la période)
-    const low = before.length ? Math.min(...before.map((e) => e.total)) : fc.start.total;
-    const days = Math.max(1, Math.round((Date.parse(saveOn) - Date.parse(snap.today)) / 86_400_000));
-    const tp = Math.max(0, Math.floor(low / days));
-    if (low >= 0 && tp < perDay) tight = { until: addDays(saveOn, -1), perDay: tp, total: Math.max(0, low) };
-  }
+  const jm = (d: CivilDate) => `${d.slice(8)}-${d.slice(5, 7)}`;
 
   const steps: string[] = [];
-  if (cashGap && left >= 0) {
-    const next = all.filter((e) => e.kind === 'sortie' && !e.done && e.planned && e.planned.date >= cashGap!.date).sort((a, b) => b.amount - a.amount)[0];
-    steps.push(`D’abord : à partir du ${cashGap.date.slice(8)}-${cashGap.date.slice(5, 7)}, il vous manquera ${F(cashGap.amount)} avant l’arrivée de l’argent attendu.`);
-    steps.push(next
-      ? `Demandez à décaler « ${next.label} » (${F(next.amount)}) après votre paie, ou notez chaque petite somme reçue d’ici là.`
-      : 'Reportez les dépenses qui peuvent attendre et notez chaque petite somme reçue d’ici là.');
+  if (incoming.length === 0 && expenses === 0 && debtTotal === 0 && all.length === 0) {
+    steps.push('Ajoutez votre salaire et vos factures du mois (ou touchez un jour du calendrier) : le plan se remplira tout seul.');
   }
   const debtLines = [
-    ...all.filter(isDebt).map((e) => `${e.label.replace(/^Rembourser /, '')} ${F(e.amount)} le ${e.planned!.date.slice(8)}-${e.planned!.date.slice(5, 7)}`),
+    ...all.filter(isDebt).map((e) => `${e.label.replace(/^Rembourser /, '')} ${F(e.amount)} ${e.planned!.date < snap.today ? '(en retard)' : `le ${jm(e.planned!.date)}`}`),
     ...debts.map((d) => `${d.person} ${F(d.thisMonth)}`),
   ];
-  const debtStep = debtTotal > 0
-    ? `Remboursez d’abord vos dettes : ${F(debtTotal)} ce mois-ci (${debtLines.slice(0, 4).join(', ')}${debtLines.length > 4 ? '…' : ''}).`
-    : null;
-  if (debtStep && left >= 0) steps.push(debtStep);
-  if (left < 0) {
-    const biggest = all.filter((e) => e.kind === 'sortie' && !e.done).sort((a, b) => b.amount - a.amount).slice(0, 2);
-    steps.push(`Ce mois-ci, vos sorties${debtTotal ? ' et vos dettes' : ''} dépassent vos entrées de ${F(-left)} : pas d’épargne possible pour l’instant.`);
-    if (debtStep) steps.push(debtStep);
-    if (biggest.length) steps.push(`Voyez si vous pouvez reporter ou réduire : ${biggest.map((b) => `${b.label} (${F(b.amount)})`).join(', ')}.`);
-    steps.push('Notez chaque petite somme reçue : elle peut combler l’écart.');
+  if (debtTotal > 0) steps.push(`Remboursez d’abord vos dettes : ${F(debtTotal)} ce mois-ci (${debtLines.slice(0, 4).join(', ')}${debtLines.length > 4 ? '…' : ''}).`);
+  if (shortage) {
+    const next = all.filter((e) => e.kind === 'sortie' && !e.done && e.planned && e.planned.date >= shortage.date).sort((a, b) => b.amount - a.amount)[0];
+    steps.push(`Attention : à partir du ${jm(shortage.date)}, il vous manquera ${F(shortage.amount)}. Pas d’épargne ce mois-ci${budget.savingsPaused ? ' (versements prévus mis en pause)' : ''}.`);
+    steps.push(next
+      ? `Demandez à décaler « ${next.label} » (${F(next.amount)}), reportez ce qui peut attendre, et notez chaque petite somme reçue : elle réduit le manque.`
+      : 'Reportez ce qui peut attendre et notez chaque petite somme reçue : elle réduit le manque.');
+  } else if (left < 0) {
+    const biggest = all.filter((e) => e.kind === 'sortie' && !e.done).sort((x, y) => y.amount - x.amount).slice(0, 2);
+    steps.push(`Ce mois-ci, vos sorties${debtTotal ? ' et vos dettes' : ''} dépassent vos entrées de ${F(-left)} : vous puisez dans l’argent déjà là, pas d’épargne pour l’instant.`);
+    if (biggest.length) steps.push(`Voyez si vous pouvez reporter ou réduire : ${biggest.map((x) => `${x.label} (${F(x.amount)})`).join(', ')}.`);
   } else if (save > 0) {
-    steps.push(mainIncome
-      ? `Le jour où vous recevez « ${mainIncome.label} », mettez tout de suite ${F(save)} de côté, avant toute dépense.`
+    steps.push(mainIncome && saveOn > snap.today
+      ? `Le ${jm(saveOn)}, quand vous recevez « ${mainIncome.label} », mettez tout de suite ${F(save)} de côté, avant toute dépense.`
       : `Mettez ${F(save)} de côté dès aujourd’hui, avant toute dépense.`);
-    if (tight) {
-      const u = tight.until;
-      steps.push(`D’ici le ${u.slice(8)}-${u.slice(5, 7)}, une fois vos sorties payées, il ne vous restera que ${F(tight.total)} pour vivre : au plus ${F(tight.perDay)} par jour jusque-là.`);
-      steps.push(`Ensuite, dépensez au plus ${F(perDay)} par jour pour la vie courante (nourriture, transport, sorties).`);
-    } else steps.push(`Pour le reste du mois, dépensez au plus ${F(perDay)} par jour pour la vie courante (nourriture, transport, sorties).`);
-    if (save < rec) steps.push(`L’idéal serait ${F(rec)} : réduisez une dépense pour vous en rapprocher.`);
-    if (spentSoFar > 0) steps.push(`Vous avez déjà dépensé ${F(spentSoFar)} au quotidien ce mois-ci.`);
-  } else {
-    steps.push('Tout est déjà pris par vos factures : gardez au moins une petite somme de côté chaque semaine, même 1 000 F.');
+    if (save < rec - savingsPlanned) steps.push(`L’idéal serait ${F(rec)} : réduisez une dépense pour vous en rapprocher.`);
+  } else if (savingsPlanned > 0) {
+    steps.push(`Vos versements d’épargne prévus (${F(savingsPlanned)}) suffisent ce mois-ci : faites-les à la date prévue.`);
+  } else if (all.length) {
+    steps.push('Ce mois-ci, rien ne reste pour l’épargne une fois tout payé : gardez au moins une petite somme de côté chaque semaine, même 1 000 F.');
+  }
+  // Ce qu'on peut dépenser, période par période (le même calcul que « Je peux dépenser aujourd’hui »).
+  if (segs.length > 1) {
+    segs.slice(0, 3).forEach((g, k) => steps.push(k === 0
+      ? `Jusqu’au ${jm(g.until)} : au plus ${F(g.perDay)} par jour pour vivre (nourriture, transport, sorties).`
+      : `Du ${jm(g.from)} au ${jm(g.until)} : au plus ${F(g.perDay)} par jour.`));
+  } else if (segs.length === 1) {
+    steps.push(`Jusqu’à la fin du mois : au plus ${F(segs[0].perDay)} par jour pour vivre (nourriture, transport, sorties).`);
+  }
+  if (spentSoFar > 0) steps.push(`Vous avez déjà dépensé ${F(spentSoFar)} au quotidien ce mois-ci.`);
+  if (outlook && keepForNext > 0) {
+    steps.push(`Gardez ${F(keepForNext)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}) : ce montant est déjà retiré de vos limites par jour.`);
   }
 
-  if (outlook && outlook.earlyNext.total > 0 && left >= 0) {
-    const d = outlook.earlyNext.until;
-    steps.push(outlook.free < 0
-      ? `Gardez de côté ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}) : il vous manquera ${F(-outlook.free)} d’ici le ${d.slice(8)}-${d.slice(5, 7)}.`
-      : `Gardez ${F(outlook.earlyNext.total)} pour le début du mois prochain (${outlook.earlyNext.items.slice(0, 2).map((i) => i.label).join(', ')}) : ne les dépensez pas d’ici là.`);
-  }
-
-  return { start, end, days, income, expenses, savingsPlanned, debtReserve, debtPayments, debtTotal, debts, left,
+  return { start, end, days, income, expenses, savingsPlanned, debtReserve, debtPayments, debtTotal, debts, left, budget,
     advice: { save, saveOn, perDay, steps, shortBy: Math.max(0, -left), cashGap } };
 }
 
@@ -230,7 +212,8 @@ export function monthEndOutlook(snap: Snapshot, view: 'standard' | 'prudente' = 
   const nextEnd = monthBounds(nextStart).end;
   const after = fc.events.filter((e) => e.date >= nextStart && e.date <= nextEnd);
   const payday = after.find((e) => e.item.kind === 'rentree' && !!e.item.recurring)?.item ?? null;
-  const until = payday ? addDays(payday.date, -1) : `${nextStart.slice(0, 8)}15`;
+  // Le jour de paie compris : ce jour-là, les sorties passent avant l'arrivée du salaire.
+  const until = payday ? payday.date : `${nextStart.slice(0, 8)}15`;
   const items = after.filter((e) => e.item.kind === 'sortie' && e.date <= until).map((e) => e.item);
   const total = items.reduce((s, i) => s + i.amount, 0);
   return { end, endBalance, lowest, earlyNext: { until, items, total, payday }, free: endBalance - total };

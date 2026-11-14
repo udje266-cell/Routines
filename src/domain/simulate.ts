@@ -57,14 +57,16 @@ export function purchaseItem(p: PurchaseInput): PlannedItem {
   };
 }
 
-function firstAddedShortfall(base: Forecast, scen: Forecast, key: string): Shortfall | null {
+function firstAddedShortfall(base: Forecast, scen: Forecast, key: string, onlyNewAfter?: CivilDate): Shortfall | null {
   const mb = dailyMinimum(base, key);
   const ms = dailyMinimum(scen, key);
   for (const [date, s] of ms) {
     const b = mb.get(date) ?? 0;
     const defS = Math.max(0, -s);
     const defB = Math.max(0, -b);
-    if (defS > defB) {
+    // En vue prudente, un jour plus tard déjà en déficit sans l'achat (salaire non compté) ne compte pas :
+    // on signale un nouveau manque, ou un manque le jour même de l'achat.
+    if (defS > defB && !(onlyNewAfter && defB > 0 && date > onlyNewAfter)) {
       const bal = (e: (typeof scen.events)[number]) => (key === '*' ? e.total : e.balances[key] ?? 0);
       const item =
         scen.events.find((e) => e.date === date && bal(e) < Math.min(0, b))?.item ??
@@ -80,9 +82,10 @@ function check(snap: Snapshot, view: 'standard' | 'prudente', p: PurchaseInput):
   if (p.date < snap.today) throw new Error("La date d'achat est passée.");
   const base = forecast(snap, view);
   const scen = forecast(snap, view, [purchaseItem(p)]);
-  const w = firstAddedShortfall(base, scen, p.walletId);
+  const onlyNew = view === 'prudente' ? p.date : undefined;
+  const w = firstAddedShortfall(base, scen, p.walletId, onlyNew);
   const wallet = snap.wallets.find((x) => x.id === p.walletId);
-  const t = wallet?.everyday ? firstAddedShortfall(base, scen, '*') : null;
+  const t = wallet?.everyday ? firstAddedShortfall(base, scen, '*', onlyNew) : null;
   if (!w) return t;
   if (!t) return w;
   return t.date < w.date ? t : w;

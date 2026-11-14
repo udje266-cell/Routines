@@ -17,3 +17,4 @@ export * from "./analyse";
 export * from "./conseiller";
 export * from "./placements";
 export * from "./plan-mois";
+export * from "./budget";

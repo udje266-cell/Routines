@@ -2,7 +2,8 @@ import { categoryTrends, financialHealth, loanRemaining, ratios } from './analys
 import { amortization, simulateEarlyRepayment, USURY_CAPS } from './credit';
 import { currentCycle, categoryStatus } from './cycle';
 import { formatDateFr } from './dates';
-import { dailyMinimum, forecast } from './forecast';
+import { forecast } from './forecast';
+import { monthPlan } from './plan-mois';
 import { formatFcfa, type Francs } from './money';
 import { goalSchedule } from './objectifs';
 import { PLACEMENTS, futureValue } from './placements';
@@ -44,14 +45,13 @@ export function advise(snap: Snapshot): Advice[] {
       impact: { label: 'à couvrir', amount: overdue.reduce((s, e) => s + e.item.amount, 0) },
       action: { label: 'Voir le calendrier', href: '/calendrier' },
     });
-  const min = dailyMinimum(fc, '*');
-  const firstNeg = [...min].find(([, v]) => v < 0);
-  if (firstNeg) {
-    const worst = Math.min(...min.values());
+  // Le même manque que l'accueil et le plan du mois (jusqu'à la fin du mois, dettes et début du mois suivant compris).
+  const shortage = monthPlan(snap).budget.shortage;
+  if (shortage) {
     out.push({
-      id: 'manque', priority: 1, title: `Manque prévu à partir du ${formatDateFr(firstNeg[0])}`,
-      detail: `Au plus bas, il manquerait ${formatFcfa(-worst)} sur vos portefeuilles du quotidien. Reportez les dépenses non essentielles, négociez une date, ou transférez depuis l’épargne.`,
-      impact: { label: 'manque', amount: -worst },
+      id: 'manque', priority: 1, title: `Manque prévu à partir du ${formatDateFr(shortage.date)}`,
+      detail: `Il manquera ${formatFcfa(shortage.amount)} d’ici la fin du mois. Reportez les dépenses non essentielles, demandez à décaler une date, ou transférez depuis l’épargne.`,
+      impact: { label: 'manque', amount: shortage.amount },
       action: { label: 'Voir le calendrier', href: '/calendrier' },
     });
   }
@@ -82,8 +82,8 @@ export function advise(snap: Snapshot): Advice[] {
   // 3. Dettes.
   if (r.debtService > 1 / 3)
     out.push({
-      id: 'endettement', priority: 1, title: 'Endettement trop élevé',
-      detail: `Vos crédits absorbent ${Math.round(r.debtService * 100)} % de votre revenu principal. N’en prenez pas de nouveau ; remboursez en priorité le plus cher.`,
+      id: 'endettement', priority: 1, title: 'Trop de dettes ce mois-ci',
+      detail: `Vos dettes et crédits à rembourser ce mois-ci représentent ${Number.isFinite(r.debtService) ? `${Math.round(r.debtService * 100)} %` : 'plus que'} de votre revenu principal. N’empruntez plus ; remboursez d’abord les plus chères ou les plus pressantes.`,
       action: { label: 'Voir mes crédits', href: '/credits' },
     });
   for (const l of (snap.loans ?? []).filter((x) => x.status === 'en_cours')) {
