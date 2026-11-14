@@ -94,6 +94,10 @@ export interface FinanceRepository {
   cancelDebtPayment(paymentId: string): Promise<void>;
   setDebtStatus(debtId: string, status: 'annulee' | 'remise'): Promise<void>;
   addGoal(g: NewGoal): Promise<void>;
+  /** Modifier un objectif (la poche ne change plus une fois des versements faits). */
+  updateGoal(id: string, g: NewGoal): Promise<void>;
+  /** Effacer un objectif : l'argent déjà mis de côté reste sur le compte d'épargne. */
+  deleteGoal(id: string): Promise<void>;
   /** Versement ou retrait réel : transfert atomique entre le quotidien et la poche d'épargne. */
   moveGoal(m: GoalMovementInput): Promise<void>;
   saveCycle(c: CycleSettings): Promise<void>;

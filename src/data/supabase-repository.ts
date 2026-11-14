@@ -180,6 +180,17 @@ export class SupabaseRepository implements FinanceRepository {
     }));
   }
 
+  async updateGoal(id: string, g: NewGoal) {
+    await run(this.db.from('goals').update({
+      name: g.name, target_amount: g.target, target_date: g.date, pocket_wallet_id: g.pocketWalletId,
+      from_wallet_id: g.fromWalletId ?? null, planned_day: g.plannedDay,
+    }).eq('id', id));
+  }
+
+  async deleteGoal(id: string) {
+    await run(this.db.from('goals').delete().eq('id', id));
+  }
+
   async moveGoal(m: GoalMovementInput) {
     await run(this.db.rpc('record_goal_movement', {
       p_client_key: m.clientKey, p_goal_id: m.goalId, p_wallet_id: m.walletId, p_amount: m.amount, p_date: m.date, p_withdraw: m.withdraw,

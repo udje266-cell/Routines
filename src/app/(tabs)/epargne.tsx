@@ -8,6 +8,7 @@ import { Button, C, Card, Choice, Field, Label, Pill, Screen, Status } from '@/c
 import { AmountField, DateField, DayOfMonthField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
+import { confirmAction } from '@/lib/confirm';
 import {
   addDays, adviseSavings, formatDateCourt, formatDateFr, formatFcfa, goalRemaining, goalSchedule, incomeStats, parseFcfa, progressOf,
   currentCycle, upcomingEssentials, type SavingsGoal, type Snapshot,
@@ -64,16 +65,17 @@ export default function Epargne() {
   );
 }
 
-function NewGoalForm({ onDone, defaults }: { onDone: () => void; defaults: { name: string; target: number; date: string } | null }) {
+function NewGoalForm({ onDone, defaults, goal }: { onDone: () => void; defaults: { name: string; target: number; date: string } | null; goal?: SavingsGoal }) {
   const { snapshot } = useFinance();
   const pockets = (snapshot?.wallets ?? []).filter((w) => !w.everyday);
   const everyday = (snapshot?.wallets ?? []).filter((w) => w.everyday);
-  const [name, setName] = useState(defaults?.name ?? '');
-  const [target, setTarget] = useState(defaults ? String(defaults.target) : '');
-  const [date, setDate] = useState(defaults?.date ?? addDays(snapshot!.today, 180));
-  const [day, setDay] = useState('28');
-  const [pocket, setPocket] = useState(pockets[0]?.id ?? '');
-  const [from, setFrom] = useState(everyday[0]?.id ?? '');
+  const [name, setName] = useState(goal?.name ?? defaults?.name ?? '');
+  const [target, setTarget] = useState(goal ? String(goal.target) : defaults ? String(defaults.target) : '');
+  const [date, setDate] = useState(goal?.date ?? defaults?.date ?? addDays(snapshot!.today, 180));
+  const [day, setDay] = useState(String(goal?.plannedDay ?? 28));
+  const [pocket, setPocket] = useState(goal?.pocketWalletId ?? pockets[0]?.id ?? '');
+  const [from, setFrom] = useState(goal ? goal.fromWalletId ?? '' : everyday[0]?.id ?? '');
+  const pocketLocked = !!goal && goal.movements.length > 0;
   const { run, busy, error, setError } = useWrite('objectif');
 
   async function save() {
@@ -82,8 +84,8 @@ function NewGoalForm({ onDone, defaults }: { onDone: () => void; defaults: { nam
     if (!name.trim() || !value) return setError('Nom et somme cible requis.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Choisissez une date.');
     if (!(d >= 1 && d <= 31)) return setError('Jour de versement entre 1 et 31.');
-    if (await run((repo) => repo.addGoal({ name: name.trim(), target: value, date, pocketWalletId: pocket, fromWalletId: from || undefined, plannedDay: d })))
-      onDone();
+    const g = { name: name.trim(), target: value, date, pocketWalletId: pocket, fromWalletId: from || undefined, plannedDay: d };
+    if (await run((repo) => (goal ? repo.updateGoal(goal.id, g) : repo.addGoal(g)), g)) onDone();
   }
 
   return (
@@ -92,7 +94,8 @@ function NewGoalForm({ onDone, defaults }: { onDone: () => void; defaults: { nam
       <AmountField label="Combien voulez-vous avoir ?" value={parseFcfa(target)} onChange={(v) => setTarget(v === null ? '' : String(v))} />
       <DateField label="À atteindre pour le" value={date} onChange={setDate} today={snapshot!.today} min={snapshot!.today} />
       <DayOfMonthField label="Mettre de côté le" value={Number(day) || 28} onChange={(d) => setDay(String(d))} />
-      <Choice label="Rangé sur" value={pocket} onChange={setPocket} options={pockets.map((w) => ({ value: w.id, label: w.name }))} />
+      {goal ? <Text style={{ fontSize: 18, fontWeight: '800', color: C.texte }}>Modifier l’objectif</Text> : null}
+      {pocketLocked ? null : <Choice label="Rangé sur" value={pocket} onChange={setPocket} options={pockets.map((w) => ({ value: w.id, label: w.name }))} />}
       <Choice label="Pris sur" value={from} onChange={setFrom} options={everyday.map((w) => ({ value: w.id, label: w.name }))} />
       {error ? <Status tone="risque">{error}</Status> : null}
       <Button label="Enregistrer" disabled={busy} onPress={save} />
@@ -105,6 +108,8 @@ function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
   const { snapshot } = useFinance();
   const everyday = (snapshot?.wallets ?? []).filter((w) => w.everyday);
   const [open, setOpen] = useState<null | 'verser' | 'retirer'>(null);
+  const [editing, setEditing] = useState(false);
+  const del = useWrite('objectif-suppr');
   const [amount, setAmount] = useState<number | null>(null);
   const [walletId, setWalletId] = useState(goal.fromWalletId ?? everyday[0]?.id ?? '');
   const mv = useWrite('objectif-mvt');
@@ -117,6 +122,14 @@ function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
     amount && open && mv.run((repo, clientKey) => repo.moveGoal({ clientKey, goalId: goal.id, walletId, amount, date: snapshot!.today, withdraw: open === 'retirer' }))
       .then((ok) => { if (ok) { setAmount(null); setOpen(null); } });
 
+  const remove = () => confirmAction('Effacer cet objectif ?',
+    progress > 0
+      ? `« ${goal.name} » sera effacé. Les ${formatFcfa(progress)} déjà mis de côté restent sur votre compte d’épargne : retirez-les d’abord si vous voulez les récupérer.`
+      : `« ${goal.name} » sera effacé, ainsi que ses versements prévus.`,
+    'Effacer', () => { void del.run((r) => r.deleteGoal(goal.id)); });
+
+  if (editing) return <NewGoalForm goal={goal} defaults={null} onDone={() => setEditing(false)} />;
+
   return (
     <>
       <Card>
@@ -125,7 +138,7 @@ function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
             <MaterialCommunityIcons name="piggy-bank-outline" size={28} color={C.texte} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 19, fontWeight: '800', color: C.texte }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{goal.name}</Text>
+            <Text style={{ fontSize: 19, fontWeight: '800', color: C.texte }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{goal.name}{goal.status === 'abandonne' ? ' · arrêté' : ''}</Text>
             <Text style={{ fontSize: 15, color: C.texte }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{formatFcfa(progress)} sur {formatFcfa(goal.target)}</Text>
           </View>
         </View>
@@ -134,6 +147,19 @@ function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
           <View style={{ width: `${Math.max(pct, 2)}%`, height: 14, borderRadius: 7, backgroundColor: C.mentheVif }} />
         </View>
         {goalRemaining(goal) === 0 ? <Status tone="ok">Objectif atteint, bravo !</Status> : null}
+        {del.error ? <Status tone="risque">{del.error}</Status> : null}
+        <View style={{ flexDirection: 'row', gap: 20, justifyContent: 'flex-end' }}>
+          <Pressable onPress={() => setEditing(true)} accessibilityRole="button" accessibilityLabel={`Modifier l’objectif ${goal.name}`} hitSlop={10}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 }}>
+            <Ionicons name="create-outline" size={18} color={C.violet} />
+            <Text style={{ color: C.violet, fontWeight: '700', fontSize: 15 }}>Modifier</Text>
+          </Pressable>
+          <Pressable onPress={remove} disabled={del.busy} accessibilityRole="button" accessibilityLabel={`Effacer l’objectif ${goal.name}`} hitSlop={10}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 }}>
+            <Ionicons name="trash-outline" size={18} color={C.risque} />
+            <Text style={{ color: C.risque, fontWeight: '700', fontSize: 15 }}>Effacer</Text>
+          </Pressable>
+        </View>
         {schedule.suggestedDate ? (
           <Status tone="attention">À ce rythme ({formatFcfa(schedule.perInstallment)} par mois), vous l’atteindrez le {formatDateFr(schedule.suggestedDate)}.</Status>
         ) : null}

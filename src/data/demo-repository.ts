@@ -237,6 +237,19 @@ export class DemoRepository implements FinanceRepository {
     this.goals.push({ ...g, id: this.id(), status: 'actif', movements: [] });
   }
 
+  async updateGoal(id: string, g: NewGoal) {
+    const x = this.goals.find((y) => y.id === id);
+    if (!x) throw new RefusedError('Objectif introuvable');
+    if (g.pocketWalletId !== x.pocketWalletId && x.movements.length) throw new RefusedError('Poche non modifiable : des versements existent.');
+    Object.assign(x, g);
+  }
+
+  async deleteGoal(id: string) {
+    // Les mouvements restent des transferts ordinaires : l'argent reste sur le compte d'épargne.
+    for (const o of this.ops) if (o.goalId === id) o.goalId = undefined;
+    this.goals = this.goals.filter((g) => g.id !== id);
+  }
+
   async moveGoal(m: GoalMovementInput) {
     if (this.seen(m.clientKey)) return;
     const g = this.goals.find((x) => x.id === m.goalId);
