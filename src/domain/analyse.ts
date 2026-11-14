@@ -224,7 +224,8 @@ export function financialHealth(snap: Snapshot): Health {
   add('charges', 'Charges fixes', r.income ? ((0.7 - Math.min(r.fixedShare, 0.7)) / 0.2) * 20 : 0,
     r.income ? `Vos charges fixes prennent ${pctTxt(r.fixedShare)} de vos rentrées (confortable sous 50 %).` : 'Enregistrez vos revenus pour mesurer ce point.');
   add('previsibilite', 'Prévisibilité des rentrées', ((0.8 - Math.min(r.smallShare, 0.8)) / 0.5) * 20,
-    `${pctTxt(r.smallShare)} de vos rentrées arrivent en petites sommes, plus difficiles à suivre.`);
+    r.smallShare >= 0.3 ? `${pctTxt(r.smallShare)} de vos rentrées arrivent en petites sommes, plus difficiles à suivre : notez-les toutes.`
+      : r.smallShare > 0 ? `${pctTxt(r.smallShare)} seulement de vos rentrées arrivent en petites sommes : vos revenus sont prévisibles.` : 'Vos rentrées sont régulières : facile de prévoir.');
 
   const score = pillars.reduce((s, p) => s + p.score, 0);
   return { score, grade: score >= 75 ? 'Solide' : score >= 55 ? 'Correcte' : score >= 35 ? 'Fragile' : 'Critique', pillars };

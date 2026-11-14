@@ -148,8 +148,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       prefs,
       prefsLoaded,
       setPrefs: async (p) => {
-        await savePrefs(p);
+        // L'écran suit tout de suite ; l'enregistrement sur l'appareil ne doit jamais bloquer (ex. visite guidée qui ne se ferme pas).
         setPrefsState(p);
+        await savePrefs(p).catch(() => {});
       },
       deleteAccount: async () => {
         if (!repo) return;

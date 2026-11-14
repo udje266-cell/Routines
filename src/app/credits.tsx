@@ -53,7 +53,6 @@ export default function Credits() {
 
   return (
     <Screen>
-      <Title>Crédits</Title>
       <Hero label="Capital restant dû" value={formatFcfa(owed)}>
         <HeroText>{open.length} crédit{open.length > 1 ? 's' : ''} en cours · mensualités {formatFcfa(currentLoanPayments(loans))}</HeroText>
       </Hero>

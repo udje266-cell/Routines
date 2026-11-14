@@ -16,7 +16,6 @@ export default function Bilan() {
 
   return (
     <Screen>
-      <Title>Bilan du mois</Title>
       <Choice label="Mois" value={which} onChange={setWhich} options={[{ value: 'courant', label: 'En cours' }, { value: 'precedent', label: 'Précédent' }]} />
       <Label muted>Du {formatDateFr(bounds.start)} au {formatDateFr(bounds.end)}</Label>
 
@@ -34,7 +33,7 @@ export default function Bilan() {
       </Card>
 
       <Card>
-        <Label muted>Mes limites : prévu / dépensé</Label>
+        <Label muted>Mes limites : dépensé / limite</Label>
         {r.categories.length === 0 ? <Label>Aucune limite définie (Plus › Limites de dépenses).</Label> : null}
         {r.categories.map((c) => (
           <Status key={c.category} tone={c.status === 'depasse' ? 'risque' : c.status === 'presque' ? 'attention' : 'ok'}>

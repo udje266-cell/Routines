@@ -5,16 +5,18 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Button, C, Card, Choice, Field, Label, Row, Screen, Status, SummaryCard } from '@/components/ui';
-import { AmountField, DateField } from '@/components/inputs';
+import { AmountField, DateField, TileChoice } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
+import { walletIcon } from '@/lib/categories';
+import { confirmAction } from '@/lib/confirm';
 import { addDays, checkPayment, formatDateFr, formatFcfa, paidOf, parseFcfa, remainingOf, type Debt, type DebtDirection } from '@/domain';
 
 const STATUT: Record<Debt['status'], { label: string; tone: 'ok' | 'risque' | 'attention' }> = {
   ouverte: { label: 'En cours', tone: 'attention' },
-  reglee: { label: 'Réglée', tone: 'ok' },
-  annulee: { label: 'Supprimée', tone: 'attention' },
-  remise: { label: 'Effacée par accord', tone: 'ok' },
+  reglee: { label: 'Remboursée', tone: 'ok' },
+  annulee: { label: 'Supprimée (erreur)', tone: 'attention' },
+  remise: { label: 'Pardonnée', tone: 'ok' },
 };
 
 export default function Dettes() {
@@ -78,7 +80,7 @@ function NewDebtForm({ direction, onDone }: { direction: DebtDirection; onDone: 
       ) : (
         <Button variant="secondaire" label="Ajouter une date (facultatif)" onPress={() => setDate(addDays(snapshot!.today, 7))} />
       )}
-      <Choice label="Compte" value={walletId} onChange={setWalletId} options={wallets.map((w) => ({ value: w.id, label: w.name }))} />
+      <TileChoice label="Compte" rowIcon="wallet-outline" value={walletId} onChange={setWalletId} options={wallets.map((w) => ({ value: w.id, label: w.name, icon: walletIcon(w.kind) }))} />
       {direction === 'on_me_doit' ? (
         <Choice label="Êtes-vous sûr d’être remboursé ?" value={certainty} onChange={setCertainty}
           options={[{ value: 'incertaine', label: 'Pas sûr' }, { value: 'attendue', label: 'Oui, à cette date' }]} />
@@ -106,6 +108,7 @@ function DebtCard({ debt }: { debt: Debt }) {
   const [amount, setAmount] = useState<number | null>(null);
   const [walletId, setWalletId] = useState(debt.walletId ?? wallets[0]?.id ?? '');
   const [more, setMore] = useState(false);
+  const [payDate, setPayDate] = useState(snapshot?.today ?? '');
   const pay = useWrite('remboursement');
   const st = STATUT[debt.status];
   const rest = remainingOf(debt);
@@ -119,7 +122,7 @@ function DebtCard({ debt }: { debt: Debt }) {
           <Ionicons name="person-outline" size={26} color={C.texte} />
         </View>
         <Text style={{ fontSize: 22, fontWeight: '800', color: C.texte, flex: 1 }}>{debt.person}</Text>
-        {debt.status !== 'ouverte' ? <Status tone={st.tone}>{st.label}</Status> : null}
+        <Status tone={st.tone}>{st.label}</Status>
       </View>
       {owe ? (
         <>
@@ -133,20 +136,31 @@ function DebtCard({ debt }: { debt: Debt }) {
           <Text style={{ fontSize: 16, color: C.texte, paddingVertical: 4 }}>{debt.certainty === 'attendue' ? 'Remboursement attendu' : 'Rentrée incertaine'}</Text>
         </>
       )}
+      {debt.initial > 0 ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel={`Remboursé ${formatFcfa(paidOf(debt))} sur ${formatFcfa(debt.initial)}`}
+          style={{ gap: 4 }}>
+          <View style={{ height: 10, borderRadius: 5, backgroundColor: C.violetClair, overflow: 'hidden' }}>
+            <View style={{ width: `${Math.min(100, Math.round((paidOf(debt) / debt.initial) * 100))}%`, height: 10, backgroundColor: C.mentheVif }} />
+          </View>
+          <Text style={{ fontSize: 14, color: C.secondaire }}>Remboursé {formatFcfa(paidOf(debt))} sur {formatFcfa(debt.initial)}</Text>
+        </View>
+      ) : null}
       {debt.dueDate ? <Text style={{ fontSize: 15, color: C.secondaire }}>À rembourser le {formatDateFr(debt.dueDate)}</Text> : null}
 
       {debt.status === 'ouverte' && !open ? (
-        <Button label={owe ? 'Noter un remboursement' : 'Noter un règlement'} onPress={() => setOpen(true)} />
+        <Button label={owe ? `J’ai remboursé ${debt.person}` : `${debt.person} m’a remboursé`} onPress={() => { setAmount(rest); setOpen(true); }} />
       ) : null}
       {debt.status === 'ouverte' && open ? (
         <>
           <AmountField label={owe ? 'Combien avez-vous remboursé ?' : 'Combien avez-vous reçu ?'} value={amount} onChange={setAmount} error={localError} autoFocus
             hint={`Il reste ${formatFcfa(rest)}.`} />
-          <Choice label="Avec quel compte ?" value={walletId} onChange={setWalletId} options={wallets.map((w) => ({ value: w.id, label: w.name }))} />
+          <TileChoice label="Avec quel compte ?" rowIcon="wallet-outline" value={walletId} onChange={setWalletId}
+            options={wallets.map((w) => ({ value: w.id, label: w.name, icon: walletIcon(w.kind) }))} />
+          <DateField label="Quand ?" value={payDate} onChange={setPayDate} today={snapshot!.today} max={snapshot!.today} />
           {pay.error ? <Status tone="risque">{pay.error}</Status> : null}
           <Button label="Enregistrer" disabled={pay.busy || !amount || !!localError}
             onPress={async () => {
-              if (await pay.run((repo, clientKey) => repo.payDebt({ clientKey, debtId: debt.id, amount: amount!, walletId, date: snapshot!.today }))) {
+              if (await pay.run((repo, clientKey) => repo.payDebt({ clientKey, debtId: debt.id, amount: amount!, walletId, date: payDate }), { amount, walletId, payDate })) {
                 setAmount(null);
                 setOpen(false);
               }
@@ -156,7 +170,7 @@ function DebtCard({ debt }: { debt: Debt }) {
       ) : null}
 
       {debt.payments.length || debt.status === 'ouverte' ? (
-        <Pressable onPress={() => setMore(!more)} accessibilityRole="button" accessibilityState={{ expanded: more }}>
+        <Pressable onPress={() => setMore(!more)} accessibilityRole="button" accessibilityState={{ expanded: more }} style={{ minHeight: 44, justifyContent: 'center' }}>
           <Text style={{ color: C.violet, fontWeight: '600', fontSize: 15 }}>{more ? '− Moins' : '+ Historique et autres actions'}</Text>
         </Pressable>
       ) : null}
@@ -166,14 +180,17 @@ function DebtCard({ debt }: { debt: Debt }) {
             <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={{ flex: 1 }}><Label muted>{formatDateFr(p.date)} · {formatFcfa(p.amount)}</Label></View>
               <Button label="Annuler" variant="lien" hint={`Annule le paiement de ${formatFcfa(p.amount)} et recalcule le reste`}
-                disabled={pay.busy} onPress={() => pay.run((repo) => repo.cancelDebtPayment(p.id))} />
+                disabled={pay.busy} onPress={() => confirmAction('Annuler ce remboursement ?', `${formatFcfa(p.amount)} du ${formatDateFr(p.date)} : le reste dû sera recalculé.`, 'Annuler le remboursement',
+                  () => { void pay.run((repo) => repo.cancelDebtPayment(p.id)); })} />
             </View>
           ))}
           {debt.status === 'ouverte' ? (
             <>
               <Button label={owe ? 'On m’a fait grâce du reste' : 'Je fais grâce du reste'} variant="secondaire" disabled={pay.busy}
-                onPress={() => pay.run((repo) => repo.setDebtStatus(debt.id, 'remise'))} />
-              <Button label="Supprimer (saisie par erreur)" variant="lien" disabled={pay.busy} onPress={() => pay.run((repo) => repo.setDebtStatus(debt.id, 'annulee'))} />
+                onPress={() => confirmAction(owe ? 'On vous a fait grâce du reste ?' : 'Faire grâce du reste ?', `Il restait ${formatFcfa(rest)}. La dette sera marquée « Pardonnée ».`, 'Confirmer',
+                  () => { void pay.run((repo) => repo.setDebtStatus(debt.id, 'remise')); })} />
+              <Button label="Supprimer (saisie par erreur)" variant="lien" disabled={pay.busy} onPress={() => confirmAction('Supprimer cette dette ?', 'À utiliser si elle a été saisie par erreur.', 'Supprimer',
+                  () => { void pay.run((repo) => repo.setDebtStatus(debt.id, 'annulee')); })} />
             </>
           ) : null}
         </View>

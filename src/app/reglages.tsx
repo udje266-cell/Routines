@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform } from 'react-native';
 
-import { Button, Card, Choice, Field, Label, Screen, Status, Title } from '@/components/ui';
+import { Button, Card, Choice, Field, Label, Screen, Status } from '@/components/ui';
 import { NumberField } from '@/components/inputs';
 import { useFinance } from '@/data/finance-context';
 import { ConnectionRequiredError, RefusedError } from '@/data/repository';
@@ -48,7 +48,6 @@ export default function Reglages() {
 
   return (
     <Screen>
-      <Title>Réglages</Title>
       {message ? <Card tone={message.tone}><Status tone={message.tone}>{message.text}</Status></Card> : null}
 
       <Card>

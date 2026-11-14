@@ -9,7 +9,7 @@ export const CATEGORY_TILES: { value: string; label: string; icon: Icon }[] = [
   { value: 'Alimentation', label: 'Nourriture', icon: 'restaurant-outline' },
   { value: 'Transport', label: 'Transport', icon: 'bus-outline' },
   { value: 'Logement', label: 'Maison', icon: 'home-outline' },
-  { value: 'Sorties', label: 'Sorties', icon: 'happy-outline' },
+  { value: 'Sorties', label: 'Loisirs', icon: 'happy-outline' },
   { value: 'Famille', label: 'Famille', icon: 'people-outline' },
   { value: 'Santé', label: 'Santé', icon: 'medkit-outline' },
   { value: 'Scolarité', label: 'École', icon: 'school-outline' },

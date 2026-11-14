@@ -78,7 +78,13 @@ export class ConnectionRequiredError extends Error {
 }
 
 /** Écriture refusée par une règle métier (ex. paiement supérieur au reste) : message affichable. */
-export class RefusedError extends Error {}
+/** Refus clair (règle métier) ; les montants du message sont mis en forme (« 10000 F » → « 10 000 F ») et la phrase commence par une majuscule. */
+export class RefusedError extends Error {
+  constructor(message: string) {
+    const m = message.replace(/(\d{4,}) F/g, (_, n: string) => `${n.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0')}\u00a0F`);
+    super(m.charAt(0).toUpperCase() + m.slice(1));
+  }
+}
 
 export interface FinanceRepository {
   readonly mode: 'demo' | 'compte';

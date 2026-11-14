@@ -81,7 +81,7 @@ export default function Calendrier() {
         const actionable = own.has(e.item.id) && (e.item.kind === 'rentree' || e.date <= snapshot.today);
         return (
           <View key={e.item.id} style={{ gap: 8 }}>
-            <DayRow e={e} highlight={idx === 0} expanded={opened === e.item.id}
+            <DayRow e={e} highlight={idx === 0 && e.item.kind === 'rentree'} expanded={opened === e.item.id}
               onPress={actionable ? () => setOpened(opened === e.item.id ? null : e.item.id) : undefined} />
             {actionable && opened === e.item.id ? <Card><PlannedActions item={e.item} /></Card> : null}
           </View>

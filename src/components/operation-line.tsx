@@ -17,7 +17,7 @@ export function OperationLine({ op, wallets }: { op: Operation; wallets: Wallet[
   const sub = transfer ? `${from} → ${to}` : `${from}${op.category && op.label !== op.category ? ` · ${categoryLabel(op.category)}` : ''}${op.incomeType === 'petite' ? ' · petite somme' : ''}`;
   return (
     <Pressable onPress={() => router.push({ pathname: '/operation', params: { id: op.id } })} accessibilityRole="button"
-      accessibilityLabel={`${title}, ${income ? 'plus' : 'moins'} ${formatFcfa(op.amount)}, ${sub}. Modifier ou supprimer`}
+      accessibilityLabel={`${title}, ${income ? 'plus' : transfer ? 'déplacé :' : 'moins'} ${formatFcfa(op.amount)}, ${sub}. Modifier ou supprimer`}
       style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, opacity: pressed ? 0.6 : 1 })}>
       <View style={{ width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: income ? C.mentheClair : C.lavandeClair }}>
         <Ionicons name={transfer ? 'swap-horizontal' : itemIcon(op.label, op.category, op.kind)} size={22} color={C.texte} />

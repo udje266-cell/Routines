@@ -71,7 +71,7 @@ function TesterAchatForm() {
           ? repo.recordOperation({ clientKey, kind: 'sortie', walletId, amount: value, date, label: categoryLabel(category), category })
           : repo.saveIntent({
               clientKey, amount: value, category, walletId,
-              date: newDate ?? date,
+              date: kind === 'pause' ? addDays(today, 1) : newDate ?? date,
               status: kind === 'pause' ? 'en_pause' : kind === 'reporter' ? 'replanifie' : 'abandonne',
               remindOn: kind === 'pause' ? addDays(today, 1) : undefined,
             });

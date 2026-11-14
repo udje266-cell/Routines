@@ -1,5 +1,5 @@
 import { diffDays, type CivilDate } from './dates';
-import type { Francs } from './money';
+import { formatFcfa, type Francs } from './money';
 import type { Certainty, PlannedItem, UndatedDebt } from './types';
 
 export type DebtDirection = 'je_dois' | 'on_me_doit';
@@ -41,7 +41,7 @@ export function checkPayment(d: Debt, amount: Francs): string | null {
   if (!Number.isSafeInteger(amount) || amount <= 0) return 'Montant invalide.';
   if (d.status !== 'ouverte') return 'Cette dette est close.';
   const rest = remainingOf(d);
-  if (amount > rest) return `Le paiement dépasse le reste dû (${rest} F).`;
+  if (amount > rest) return `Le paiement dépasse le reste dû (${formatFcfa(rest)}).`;
   return null;
 }
 

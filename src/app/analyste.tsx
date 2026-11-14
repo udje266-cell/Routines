@@ -41,7 +41,6 @@ export default function Analyste() {
 
   return (
     <Screen>
-      <Title>Mon analyste</Title>
       <Hero label="Santé financière" value={`${health.score} / 100`} help={<Aide k="sante" />}>
         <HeroText strong>{health.grade}</HeroText>
         <HeroText>{list.filter((a) => a.priority === 1).length} point(s) urgent(s) · {list.length} recommandation(s)</HeroText>

@@ -165,7 +165,7 @@ function AjouterForm() {
       {type === 'transfert' ? (
         <>
           <TileChoice label="Vers" rowIcon="arrow-forward-circle-outline" value={toWalletId} onChange={setToWalletId} options={accountTiles(wallets.filter((w) => w.id !== walletId))} />
-          <AmountField label="Frais payés (si il y en a)" value={fee} onChange={setFee} />
+          <AmountField label="Frais payés (s’il y en a)" value={fee} onChange={setFee} />
         </>
       ) : null}
 

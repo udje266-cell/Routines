@@ -144,7 +144,7 @@ function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
         </View>
         <View accessible accessibilityRole="progressbar" accessibilityLabel={`${goal.name} : ${pct} %`}
           accessibilityValue={{ min: 0, max: 100, now: pct }} style={{ height: 14, borderRadius: 7, backgroundColor: C.violetClair }}>
-          <View style={{ width: `${Math.max(pct, 2)}%`, height: 14, borderRadius: 7, backgroundColor: C.mentheVif }} />
+          <View style={{ width: `${pct}%`, height: 14, borderRadius: 7, backgroundColor: C.mentheVif }} />
         </View>
         {goalRemaining(goal) === 0 ? <Status tone="ok">Objectif atteint, bravo !</Status> : null}
         {del.error ? <Status tone="risque">{del.error}</Status> : null}
@@ -191,9 +191,10 @@ function GoalCard({ goal, capacity }: { goal: SavingsGoal; capacity: number }) {
         </Card>
       ) : (
         <>
-          <Button label="Ajouter un versement" onPress={() => { setAmount(next?.amount ?? null); setOpen('verser'); }} />
+          <Button label="Ajouter un versement" hint={`Pour ${goal.name}`} onPress={() => { setAmount(next?.amount ?? null); setOpen('verser'); }} />
           {progress > 0 ? (
-            <Pressable onPress={() => setOpen('retirer')} accessibilityRole="button" style={{ alignItems: 'center', padding: 4 }}>
+            <Pressable onPress={() => setOpen('retirer')} accessibilityRole="button" accessibilityLabel={`Retirer de l’argent de ${goal.name}`}
+              style={{ alignItems: 'center', justifyContent: 'center', minHeight: 44 }}>
               <Text style={{ color: C.violet, fontWeight: '600', fontSize: 15 }}>Retirer de l’argent</Text>
             </Pressable>
           ) : null}

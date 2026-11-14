@@ -9,20 +9,17 @@ import { CycleRing } from '@/components/ring';
 import { Button, C, Card, Label, Row, Screen, Status, SummaryCard } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
-import { addDays, advise, currentCycle, cycleDay, formatDateCourt, formatDateFr, formatFcfa, forecast, monthPlan, safeToSpend } from '@/domain';
+import { addDays, advise, currentCycle, cycleDay, formatDateCourt, formatDateFr, formatFcfa, forecast, monthPlan } from '@/domain';
 import { itemIcon } from '@/lib/categories';
+import { confirmAction } from '@/lib/confirm';
 
 const F = (n: number) => `${formatFcfa(n).replace(/ F$/, '')} F CFA`;
 
 export default function Aujourdhui() {
   const { snapshot, status, repo, prefs, prefsLoaded, setPrefs } = useFinance();
   // Visite guidée à la première ouverture (et quand on la redemande depuis Plus).
-  const [tourClosed, setTourClosed] = useState(false);
-  const tour = prefsLoaded && !prefs.tourSeen && !!snapshot && !tourClosed;
-  const endTour = () => {
-    setTourClosed(true);
-    setPrefs({ ...prefs, tourSeen: true }).catch(() => {}).finally(() => setTourClosed(false));
-  };
+  const tour = prefsLoaded && !prefs.tourSeen && !!snapshot;
+  const endTour = () => void setPrefs({ ...prefs, tourSeen: true });
   const pay = useWrite('paiement-accueil');
   const today = snapshot?.today ?? '2026-01-01';
   const [selected, setSelected] = useState(today);
@@ -37,13 +34,14 @@ export default function Aujourdhui() {
 
   const cycle = currentCycle(snapshot);
   const { day, length } = cycleDay(today, cycle);
-  const sts = safeToSpend(snapshot, cycle.end);
   const bills = forecast(snapshot).events.filter((e) => e.item.kind !== 'rentree').slice(0, 3);
   const tip = advise(snapshot)[0] ?? null;
   const paused = (snapshot.intents ?? []).filter((i) => i.status === 'en_pause');
   const total = snapshot.wallets.filter((w) => w.everyday).reduce((s, w) => s + w.balance, 0);
-  const short = sts.afterBills < 0;
   const plan = monthPlan(snapshot);
+  // Le même calcul que le plan du mois : un seul chiffre partout.
+  const b = plan.budget;
+  const [now, then] = b.segments;
   const when = (date: string) => (date === today ? 'Aujourd’hui' : date === addDays(today, 1) ? 'Demain' : formatDateCourt(date));
 
   return (
@@ -51,26 +49,33 @@ export default function Aujourdhui() {
       <VisiteGuidee visible={tour} onClose={endTour} />
       {repo?.mode === 'demo' ? <Card tone="attention"><Status tone="attention">Exemple avec de faux chiffres : rien n’est enregistré.</Status></Card> : null}
 
-      {/* Calendrier du mois, comme Flo : toucher un jour pour voir ou planifier une entrée ou une sortie. */}
-      <MonthCalendar plan={plan} today={today} selected={selected} onSelect={setSelected} />
-      <CycleRing day={day} length={length} size={124} />
-
-      {short ? (
-        <SummaryCard label="Il vous manque" amount={F(-sts.afterBills)} tone="rouge" icon="warning-outline" help={<Aide k="manque" />}>
+      {b.shortage ? (
+        <SummaryCard label="Il vous manque" amount={F(b.shortage.amount)} tone="rouge" icon="warning-outline" help={<Aide k="manque" />}>
           <Text style={{ fontSize: 15, color: C.texte }}>
-            pour payer vos factures{sts.debtTotal > 0 ? ` et vos dettes (${F(sts.debtTotal)})` : ''} d’ici le {formatDateCourt(sts.until)}. Évitez les dépenses qui peuvent attendre.
+            à partir du {formatDateCourt(b.shortage.date)}, pour tout payer d’ici la fin du mois{plan.debtTotal > 0 ? ` (dont ${F(plan.debtTotal)} de dettes)` : ''}. Évitez les dépenses qui peuvent attendre.
           </Text>
+          {b.savingsPaused ? <Text style={{ fontSize: 15, color: C.secondaire }}>Vos versements d’épargne sont en pause ce mois-ci.</Text> : null}
         </SummaryCard>
       ) : (
-        <SummaryCard label="Je peux dépenser aujourd’hui" amount={F(sts.perDay)} help={<Aide k="peutDepenser" />}>
+        <SummaryCard label="Je peux dépenser aujourd’hui" amount={F(b.today)} help={<Aide k="peutDepenser" />}>
           <View style={{ height: 1, backgroundColor: 'rgba(30,24,59,0.12)' }} />
           <Text style={{ fontSize: 15, color: C.texte }}>
-            Factures{sts.debtTotal > 0 ? ' et dettes' : ''} déjà mises de côté · {sts.nextIncome ? `jusqu’à la paie du ${formatDateCourt(sts.nextIncome.date)}` : 'jusqu’à la fin du mois'}
+            {now && then ? `Chaque jour jusqu’au ${formatDateCourt(now.until)}, puis ${F(then.perDay)} par jour.` : 'Chaque jour jusqu’à la fin du mois.'}
           </Text>
-          <Text style={{ fontSize: 15, color: C.secondaire }}>Vous avez {F(total)} en tout.</Text>
-          {sts.debtTotal > 0 ? <Text style={{ fontSize: 15, color: C.secondaire }}>{F(sts.debtTotal)} sont gardés pour rembourser vos dettes.</Text> : null}
+          <Text style={{ fontSize: 15, color: C.secondaire }}>
+            Factures{plan.debtTotal > 0 ? ', dettes' : ''}{b.reserves.nextMonth > 0 ? ' et début du mois prochain' : ''} déjà mis de côté. Vous avez {F(total)} en tout.
+          </Text>
+          {b.save > 0 ? (
+            <Text style={{ fontSize: 15, color: C.mentheTexte, fontWeight: '700' }}>
+              À mettre de côté : {F(b.save)} {b.saveOn === today ? 'aujourd’hui' : `le ${formatDateCourt(b.saveOn)}`}
+            </Text>
+          ) : null}
         </SummaryCard>
       )}
+
+      {/* Calendrier du mois, comme Flo : toucher un jour pour voir ou planifier une entrée ou une sortie. */}
+      <MonthCalendar plan={plan} today={today} selected={selected} onSelect={setSelected} />
+      <CycleRing day={day} length={length} size={110} />
 
       <DayPanel day={selected} today={today} entries={plan.days[selected] ?? []} />
       <PlanCard plan={plan} />
@@ -85,9 +90,10 @@ export default function Aujourdhui() {
               valueColor={e.overdue ? C.risque : undefined} />
             {canPay && (e.overdue || e.date <= addDays(today, 3)) ? (
               <Pressable disabled={pay.busy} accessibilityRole="button" accessibilityLabel={`J’ai payé ${e.item.label}`}
-                onPress={() => pay.run((r, clientKey) => e.item.loan
-                  ? r.recordLoanOperation({ clientKey, loanId: e.item.loan.loanId, installment: e.item.loan.n, amount: e.item.amount, walletId: e.item.walletId, date: e.date < today ? e.date : today })
-                  : r.settleOccurrence({ clientKey, ruleId: e.item.recurring!.ruleId, original: e.item.recurring!.original, amount: e.item.amount, walletId: e.item.walletId, date: e.date < today ? e.date : today }))}
+                onPress={() => confirmAction(`J’ai payé ${e.item.label.toLowerCase()} ?`, `${F(e.item.amount)} sortent de votre compte. Vous pourrez l’annuler depuis vos dernières opérations.`, 'Oui, payé',
+                  () => { void pay.run((r, clientKey) => e.item.loan
+                    ? r.recordLoanOperation({ clientKey, loanId: e.item.loan.loanId, installment: e.item.loan.n, amount: e.item.amount, walletId: e.item.walletId, date: e.date < today ? e.date : today })
+                    : r.settleOccurrence({ clientKey, ruleId: e.item.recurring!.ruleId, original: e.item.recurring!.original, amount: e.item.amount, walletId: e.item.walletId, date: e.date < today ? e.date : today })); })}
                 style={{ alignSelf: 'flex-end', paddingHorizontal: 14, paddingVertical: 6 }}>
                 <Text style={{ color: C.violet, fontWeight: '700', fontSize: 15 }}>✓ J’ai payé {e.item.label.toLowerCase()}</Text>
               </Pressable>
@@ -99,7 +105,7 @@ export default function Aujourdhui() {
       <Button label="Tester un achat" icon="help-circle-outline" onPress={() => router.push('/tester-achat')} />
       <Button label="Ajouter" variant="secondaire" icon="add" onPress={() => router.push('/ajouter')} />
 
-      {!sts.nextIncome && snapshot.wallets.length > 0 ? (
+      {!(snapshot.recurring ?? []).some((r) => r.kind === 'rentree') && snapshot.wallets.length > 0 ? (
         <Row icon="briefcase-outline" title="Ajouter mon salaire" sub="Pour un calcul juste jusqu’à la paie"
           onPress={() => router.push({ pathname: '/ajouter', params: { type: 'mensuelle', sens: 'rentree' } })} />
       ) : null}
