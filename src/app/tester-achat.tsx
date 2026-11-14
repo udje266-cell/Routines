@@ -2,12 +2,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 
 import { AmountField, DateField, TileChoice } from '@/components/inputs';
-import { Button, C, Card, Label, Screen, Status, SummaryCard } from '@/components/ui';
+import { Button, C, Card, Field, Label, Screen, Status, SummaryCard } from '@/components/ui';
 import { Text, View } from 'react-native';
 import { newClientKey } from '@/data/client-key';
 import { useFinance } from '@/data/finance-context';
 import { ConnectionRequiredError } from '@/data/repository';
-import { addDays, formatDateCourt, formatDateFr, formatFcfa, simulatePurchase, type SimulationResult } from '@/domain';
+import { addDays, formatDateCourt, formatDateFr, formatFcfa, monthPlan, simulatePurchase, type SimulationResult } from '@/domain';
 import { CATEGORY_TILES, categoryLabel, walletIcon } from '@/lib/categories';
 
 
@@ -38,10 +38,13 @@ function TesterAchatForm() {
   // Une clé par intention d'écriture, conservée en cas de réessai après coupure.
   const [clientKey] = useState(() => newClientKey('achat'));
   const [done, setDone] = useState<string | null>(null);
+  const [what, setWhat] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const value = amount;
+  // Le même chiffre que « Je peux dépenser aujourd’hui ».
+  const limit = useMemo(() => (snapshot ? monthPlan(snapshot).budget.today : 0), [snapshot]);
   const result = useMemo<SimulationResult | { error: string } | null>(() => {
     if (!snapshot || !value || !walletId) return null;
     try {
@@ -63,17 +66,18 @@ function TesterAchatForm() {
       await write(async (repo) => {
         if (intentId) {
           // Achat repris depuis la pause : on met à jour la même intention.
-          if (kind === 'acheter') await repo.recordOperation({ clientKey, kind: 'sortie', walletId, amount: value, date, label: categoryLabel(category), category });
+          if (kind === 'acheter') await repo.recordOperation({ clientKey, kind: 'sortie', walletId, amount: value, date, label: what.trim() || categoryLabel(category), category });
           const status = kind === 'acheter' ? 'achete' : kind === 'pause' ? 'en_pause' : kind === 'reporter' ? 'replanifie' : 'abandonne';
           return repo.updateIntent(intentId, status, kind === 'pause' ? addDays(today, 1) : newDate);
         }
         return kind === 'acheter'
-          ? repo.recordOperation({ clientKey, kind: 'sortie', walletId, amount: value, date, label: categoryLabel(category), category })
+          ? repo.recordOperation({ clientKey, kind: 'sortie', walletId, amount: value, date, label: what.trim() || categoryLabel(category), category })
           : repo.saveIntent({
               clientKey, amount: value, category, walletId,
               date: kind === 'pause' ? addDays(today, 1) : newDate ?? date,
               status: kind === 'pause' ? 'en_pause' : kind === 'reporter' ? 'replanifie' : 'abandonne',
               remindOn: kind === 'pause' ? addDays(today, 1) : undefined,
+              label: what.trim() || undefined,
             });
       });
       setDone(
@@ -105,6 +109,7 @@ function TesterAchatForm() {
   return (
     <Screen>
       <AmountField label="Combien coûte ce que vous voulez acheter ?" value={amount} onChange={setAmount} autoFocus />
+      <Field label="" icon="bag-handle-outline" placeholder="Quoi ? (facultatif, ex. chaussures)" value={what} onChangeText={setWhat} />
       <TileChoice label="Catégorie" rowIcon="pricetag-outline" value={category} onChange={setCategory} options={CATEGORY_TILES} />
       <TileChoice label="Payé avec" rowIcon="wallet-outline" value={walletId} onChange={setWalletId}
         options={wallets.map((w) => ({ value: w.id, label: w.name, sub: formatFcfa(w.balance), icon: walletIcon(w.kind) }))} />
@@ -112,6 +117,11 @@ function TesterAchatForm() {
 
       {result && 'error' in result ? <Status tone="risque">{result.error}</Status> : null}
       {result && !('error' in result) ? <Verdict r={result} /> : null}
+      {result && !('error' in result) && result.verdict === 'ok' && value && date === today && value > limit ? (
+        <Status tone="attention">
+          C’est plus que votre limite du jour ({formatFcfa(limit)}) : vos factures restent payées, mais il vous restera moins pour les jours suivants.
+        </Status>
+      ) : null}
 
       {result && !('error' in result) ? (
         <>

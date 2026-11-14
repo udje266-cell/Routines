@@ -26,13 +26,23 @@ interface FinanceState {
   signOut(): Promise<void>;
   refresh(): Promise<void>;
   /** Exécute une écriture puis recharge ; lève ConnectionRequiredError si le serveur ne répond pas. */
-  write(fn: (repo: FinanceRepository) => Promise<void>): Promise<void>;
+  write(fn: (repo: FinanceRepository) => Promise<unknown>): Promise<void>;
   prefs: DevicePrefs;
   /** Faux tant que les préférences de l'appareil (dont le verrou) ne sont pas lues. */
   prefsLoaded: boolean;
   setPrefs(p: DevicePrefs): Promise<void>;
+  /** Petit message après une saisie (« Enregistré · Annuler »). */
+  notice: Notice | null;
+  notify(text: string, undo?: (repo: FinanceRepository) => Promise<unknown>): void;
+  clearNotice(): void;
   /** Supprime le compte sur le serveur puis efface tout ce qui reste sur l'appareil. */
   deleteAccount(): Promise<void>;
+}
+
+export interface Notice {
+  id: number;
+  text: string;
+  undo?: (repo: FinanceRepository) => Promise<unknown>;
 }
 
 const Ctx = createContext<FinanceState | null>(null);
@@ -45,6 +55,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefsState] = useState<DevicePrefs>(DEFAULT_PREFS);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const [restoring, setRestoring] = useState(Boolean(supabase));
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   useEffect(() => {
     loadPrefs().then((p) => {
@@ -162,6 +173,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       refresh: async () => {
         if (repo) await load(repo);
       },
+      notice,
+      notify: (text, undo) => setNotice({ id: Date.now(), text, undo }),
+      clearNotice: () => setNotice(null),
       write: async (fn) => {
         if (!repo) throw new Error('Aucun compte');
         try {
@@ -173,7 +187,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         await load(repo);
       },
     }),
-    [repo, restoring, snapshot, status, error, load, select, prefs, prefsLoaded, wipeDevice],
+    [repo, restoring, snapshot, status, error, load, select, prefs, prefsLoaded, wipeDevice, notice],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

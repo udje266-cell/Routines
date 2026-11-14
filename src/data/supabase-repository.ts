@@ -100,7 +100,7 @@ export class SupabaseRepository implements FinanceRepository {
         settled: operations.filter((o) => o.recurring?.ruleId === r.id).map((o) => o.recurring!.original),
       })),
       intents: (intents as Row[]).map((i): IntentRecord => ({
-        id: i.id, amount: Number(i.amount), category: i.category, walletId: i.wallet_id, date: i.planned_date, status: i.status, createdOn: i.created_on,
+        id: i.id, amount: Number(i.amount), category: i.category, walletId: i.wallet_id, date: i.planned_date, status: i.status, createdOn: i.created_on, label: i.label ?? undefined,
       })),
       debts: (debts as Row[]).map((d): Debt => ({
         id: d.id, direction: d.direction, person: d.person, initial: Number(d.initial_amount), dueDate: d.due_date ?? undefined,
@@ -133,7 +133,7 @@ export class SupabaseRepository implements FinanceRepository {
   }
 
   async recordOperation(op: NewOperation) {
-    await run(
+    const row = await run(
       this.db.rpc('record_operation', {
         p_client_key: op.clientKey, p_kind: op.kind, p_wallet_id: op.walletId, p_amount: op.amount,
         p_op_date: op.date, p_label: op.label, p_category: op.category ?? null,
@@ -141,15 +141,20 @@ export class SupabaseRepository implements FinanceRepository {
         p_income_type: op.kind === 'rentree' ? op.incomeType ?? 'principal' : null,
       }),
     );
+    return (row as { id?: string } | null)?.id;
   }
 
   async saveIntent(i: NewIntent) {
-    await run(
-      this.db.from('purchase_intents').upsert(
-        { client_key: i.clientKey, amount: i.amount, category: i.category, wallet_id: i.walletId, planned_date: i.date, status: i.status, remind_on: i.remindOn ?? null },
-        { onConflict: 'user_id,client_key', ignoreDuplicates: true },
-      ),
-    );
+    const row = { client_key: i.clientKey, amount: i.amount, category: i.category, wallet_id: i.walletId, planned_date: i.date, status: i.status, remind_on: i.remindOn ?? null };
+    const save = (r: Record<string, unknown>) => run(this.db.from('purchase_intents').upsert(r, { onConflict: 'user_id,client_key', ignoreDuplicates: true }));
+    try {
+      await save(i.label ? { ...row, label: i.label } : row);
+    } catch (e) {
+      // Colonne « label » pas encore créée sur le serveur : on enregistre sans le nom plutôt que d'échouer.
+      const code = (e as { code?: string }).code;
+      if (i.label && (code === 'PGRST204' || code === '42703')) await save(row);
+      else throw e;
+    }
   }
 
   async addDebt(d: NewDebt) {

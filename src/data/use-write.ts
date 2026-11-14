@@ -12,6 +12,8 @@ export function useWrite(prefix: string) {
   const { write } = useFinance();
   const key = useRef<string | null>(null);
   const content = useRef<string | null>(null);
+  /** Ce que la dernière écriture réussie a renvoyé (ex. l'identifiant de l'opération créée). */
+  const result = useRef<unknown>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +21,7 @@ export function useWrite(prefix: string) {
    * `payload` : le contenu saisi. S'il a changé depuis l'essai précédent, c'est une nouvelle intention :
    * nouvelle clé, pour qu'une correction ne soit pas confondue avec un premier envoi peut-être déjà enregistré.
    */
-  async function run(fn: (repo: FinanceRepository, clientKey: string) => Promise<void>, payload?: unknown): Promise<boolean> {
+  async function run(fn: (repo: FinanceRepository, clientKey: string) => Promise<unknown>, payload?: unknown): Promise<boolean> {
     const c = payload === undefined ? null : JSON.stringify(payload);
     if (c !== content.current) key.current = null;
     content.current = c;
@@ -27,7 +29,9 @@ export function useWrite(prefix: string) {
     setBusy(true);
     setError(null);
     try {
-      await write((repo) => fn(repo, key.current!));
+      await write(async (repo) => {
+        result.current = await fn(repo, key.current!);
+      });
       key.current = null; // succès : la prochaine intention aura une nouvelle clé
       return true;
     } catch (e) {
@@ -42,5 +46,5 @@ export function useWrite(prefix: string) {
     }
   }
 
-  return { run, busy, error, setError };
+  return { run, busy, error, setError, result };
 }

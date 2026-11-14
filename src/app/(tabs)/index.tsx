@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -6,10 +7,10 @@ import { Aide, VisiteGuidee } from '@/components/aide';
 import { OperationLine } from '@/components/operation-line';
 import { DayPanel, MonthCalendar, PlanCard } from '@/components/month-calendar';
 import { CycleRing } from '@/components/ring';
-import { Button, C, Card, Label, Row, Screen, Status, SummaryCard } from '@/components/ui';
+import { Button, C, Card, Label, Pill, Row, Screen, Status, SummaryCard } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
-import { addDays, advise, currentCycle, cycleDay, formatDateCourt, formatDateFr, formatFcfa, forecast, monthPlan } from '@/domain';
+import { addDays, advise, currentCycle, cycleDay, formatDateCourt, formatDateFr, formatFcfa, forecast, monthBounds, monthPlan, progressOf } from '@/domain';
 import { itemIcon } from '@/lib/categories';
 import { confirmAction } from '@/lib/confirm';
 
@@ -44,7 +45,19 @@ export default function Aujourdhui() {
   const [now, then] = b.segments;
   const when = (date: string) => (date === today ? 'Aujourd’hui' : date === addDays(today, 1) ? 'Demain' : formatDateCourt(date));
 
+  // Mes progrès du mois : ce qui avance, pour garder la motivation.
+  const { start: mStart } = monthBounds(today);
+  const monthOps = (snapshot.operations ?? []).filter((o) => o.date >= mStart && o.date <= today);
+  const pocketIds = new Set(snapshot.wallets.filter((w) => !w.everyday).map((w) => w.id));
+  const savedMonth = monthOps.filter((o) => o.kind === 'transfert' && pocketIds.has(o.toWalletId ?? '')).reduce((s, o) => s + o.amount, 0)
+    - monthOps.filter((o) => o.kind === 'transfert' && pocketIds.has(o.walletId)).reduce((s, o) => s + o.amount, 0);
+  const repaidMonth = monthOps.filter((o) => o.debtId && o.kind === 'sortie').reduce((s, o) => s + o.amount, 0);
+  const mainGoal = (snapshot.goals ?? []).find((g) => g.status === 'actif');
+  const goalPct = mainGoal ? Math.min(100, Math.round((progressOf(mainGoal) / mainGoal.target) * 100)) : null;
+  const notedDays = new Set(monthOps.map((o) => o.date)).size;
+
   return (
+    <View style={{ flex: 1, backgroundColor: C.fond }}>
     <Screen title="Aujourd’hui" subtitle={formatDateFr(today)} help={<Aide k="calendrier" size={26} />}>
       <VisiteGuidee visible={tour} onClose={endTour} />
       {repo?.mode === 'demo' ? <Card tone="attention"><Status tone="attention">Exemple avec de faux chiffres : rien n’est enregistré.</Status></Card> : null}
@@ -63,7 +76,7 @@ export default function Aujourdhui() {
             {now && then ? `Chaque jour jusqu’au ${formatDateCourt(now.until)}, puis ${F(then.perDay)} par jour.` : 'Chaque jour jusqu’à la fin du mois.'}
           </Text>
           <Text style={{ fontSize: 15, color: C.secondaire }}>
-            Factures{plan.debtTotal > 0 ? ', dettes' : ''}{b.reserves.nextMonth > 0 ? ' et début du mois prochain' : ''} déjà mis de côté. Vous avez {F(total)} en tout.
+            Déjà gardé pour vos factures{plan.debtTotal > 0 ? ', vos dettes' : ''}{b.reserves.nextMonth > 0 ? ' et le début du mois prochain' : ''}. Vous avez {F(total)} en tout.
           </Text>
           {b.save > 0 ? (
             <Text style={{ fontSize: 15, color: C.mentheTexte, fontWeight: '700' }}>
@@ -72,6 +85,18 @@ export default function Aujourdhui() {
           ) : null}
         </SummaryCard>
       )}
+
+      {savedMonth > 0 || repaidMonth > 0 || goalPct !== null || notedDays > 0 ? (
+        <Card>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: C.texte }}>Mes progrès ce mois-ci</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {notedDays > 0 ? <Pill>📝 {notedDays} jour{notedDays > 1 ? 's' : ''} noté{notedDays > 1 ? 's' : ''}</Pill> : null}
+            {savedMonth > 0 ? <Pill>🐷 {formatFcfa(savedMonth)} mis de côté</Pill> : null}
+            {repaidMonth > 0 ? <Pill>✅ {formatFcfa(repaidMonth)} de dettes remboursées</Pill> : null}
+            {goalPct !== null && mainGoal ? <Pill>🎯 {mainGoal.name} : {goalPct} %</Pill> : null}
+          </View>
+        </Card>
+      ) : null}
 
       {/* Calendrier du mois, comme Flo : toucher un jour pour voir ou planifier une entrée ou une sortie. */}
       <MonthCalendar plan={plan} today={today} selected={selected} onSelect={setSelected} />
@@ -111,7 +136,7 @@ export default function Aujourdhui() {
       ) : null}
 
       {tip ? (
-        <Row icon={tip.priority === 1 ? 'alert-circle-outline' : 'bulb-outline'} title={tip.title} sub="Le conseil de votre banquier"
+        <Row icon={tip.priority === 1 ? 'alert-circle-outline' : 'bulb-outline'} title={tip.title} sub="Conseil de mon analyste"
           onPress={() => router.push('/analyste')} />
       ) : null}
 
@@ -130,9 +155,15 @@ export default function Aujourdhui() {
       ) : null}
 
       {paused.map((i) => (
-        <Row key={i.id} icon="pause-circle-outline" title={`Achat en pause · ${F(i.amount)}`} sub={`À revoir le ${formatDateCourt(i.date)}`}
+        <Row key={i.id} icon="pause-circle-outline" title={`${i.label ?? 'Achat en pause'} · ${F(i.amount)}`} sub={`À revoir le ${formatDateCourt(i.date)}`}
           onPress={() => router.push({ pathname: '/achat-en-pause', params: { id: i.id } })} />
       ))}
     </Screen>
+    <Pressable onPress={() => router.push('/ajouter')} accessibilityRole="button" accessibilityLabel="Noter une dépense ou de l’argent reçu"
+      style={({ pressed }) => ({ position: 'absolute', right: 20, bottom: 20, width: 62, height: 62, borderRadius: 31, backgroundColor: pressed ? C.violetPresse : C.violet,
+        alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } })}>
+      <Ionicons name="add" size={34} color="#fff" />
+    </Pressable>
+    </View>
   );
 }

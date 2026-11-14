@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 
 import { AmountField, DayOfMonthField } from '@/components/inputs';
 import { Button, C, Card, Label, Screen, Status } from '@/components/ui';
 import { useFinance } from '@/data/finance-context';
 import { useWrite } from '@/data/use-write';
+import { ensurePermission } from '@/lib/notifications';
 import { addDays, formatFcfa, monthlyDate, type WalletKind } from '@/domain';
 
 /**
@@ -20,9 +21,10 @@ type Bill = { key: string; label: string; category: string; icon: keyof typeof I
 const STEPS = ['Mon argent', 'Mon salaire', 'Mes factures', 'Ma sécurité'];
 
 export default function Bienvenue() {
-  const { snapshot } = useFinance();
+  const { snapshot, prefs, setPrefs } = useFinance();
   const today = snapshot?.today ?? '2026-01-01';
   const [step, setStep] = useState(0);
+  const [evening, setEvening] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([
     { kind: 'wave', name: 'Wave', on: true, balance: null },
     { kind: 'orange_money', name: 'Orange Money', on: false, balance: null },
@@ -96,7 +98,10 @@ export default function Bienvenue() {
         created.current.goal = true;
       }
     });
-    if (ok) router.replace('/');
+    if (!ok) return;
+    if (evening && Platform.OS !== 'web' && (await ensurePermission().catch(() => false)))
+      await setPrefs({ ...prefs, reminders: { ...prefs.reminders, enabled: true, evening: true } });
+    router.replace('/');
   }
 
   return (
@@ -207,6 +212,13 @@ export default function Bienvenue() {
             <Ionicons name={savingGoal ? 'checkbox' : 'square-outline'} size={26} color={C.marine} />
             <Text style={{ fontSize: 17, color: C.texte, flex: 1 }}>Oui, je veux me constituer ce coussin</Text>
           </Pressable>
+          {Platform.OS !== 'web' ? (
+            <Pressable onPress={() => setEvening(!evening)} accessibilityRole="checkbox" accessibilityState={{ checked: evening }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 }}>
+              <Ionicons name={evening ? 'checkbox' : 'square-outline'} size={26} color={C.marine} />
+              <Text style={{ fontSize: 17, color: C.texte, flex: 1 }}>Me rappeler chaque soir à 20 h de noter mes dépenses</Text>
+            </Pressable>
+          ) : null}
           <Label muted>Vous pourrez tout modifier plus tard dans l’onglet Plus.</Label>
         </>
       ) : null}

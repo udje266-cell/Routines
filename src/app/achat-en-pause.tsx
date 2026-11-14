@@ -23,11 +23,11 @@ export default function AchatEnPause() {
   return (
     <Screen>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: C.violetClair, borderRadius: 20, padding: 20 }}
-        accessible accessibilityLabel={`${categoryLabel(intent.category)}, ${formatFcfa(intent.amount)}`}>
+        accessible accessibilityLabel={`${intent.label ?? categoryLabel(intent.category)}, ${formatFcfa(intent.amount)}`}>
         <Ionicons name={icon} size={44} color={C.texte} />
         <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: 'rgba(30,24,59,0.2)' }} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: C.texte }}>{categoryLabel(intent.category)}</Text>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: C.texte }}>{intent.label ?? categoryLabel(intent.category)}</Text>
           <Text style={{ fontSize: 30, fontWeight: '800', color: C.texte }} adjustsFontSizeToFit numberOfLines={1}>{formatFcfa(intent.amount)} CFA</Text>
         </View>
       </View>

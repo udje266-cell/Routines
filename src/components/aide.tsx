@@ -8,7 +8,7 @@ import { C } from '@/components/ui';
 export const AIDE = {
   peutDepenser: {
     titre: 'Je peux dépenser aujourd’hui',
-    texte: 'C’est ce que vous pouvez dépenser aujourd’hui sans toucher à l’argent de vos factures. L’application a déjà mis de côté le loyer, la CIE, la SODECI… et la part de vos dettes à rembourser, jusqu’à votre prochaine paie, puis a partagé le reste entre les jours qui restent.\n\nSi vous dépensez moins aujourd’hui, le chiffre de demain sera un peu plus grand.',
+    texte: 'C’est ce que vous pouvez dépenser aujourd’hui sans toucher à l’argent de vos factures. L’application a déjà mis de côté vos factures (loyer, CIE, SODECI…), vos dettes, l’épargne conseillée et ce qu’il faut pour le début du mois suivant, puis a partagé le reste entre les jours d’ici la fin du mois. Si de l’argent attendu arrive plus tard, le montant par jour augmente à partir de ce jour-là.\n\nSi vous dépensez moins aujourd’hui, le chiffre de demain sera un peu plus grand.',
   },
   manque: {
     titre: 'Il vous manque',
@@ -24,7 +24,7 @@ export const AIDE = {
   },
   plan: {
     titre: 'Mon plan du mois',
-    texte: 'Entrées prévues : tout l’argent qui arrive ce mois-ci.\nSorties prévues : vos factures et dépenses connues.\nDettes à rembourser : la part de vos dettes à payer ce mois-ci (une dette sans date est étalée sur 3 mois ; une dette datée, jusqu’à sa date).\nIl reste : la différence.\n\nEnsuite, l’application vous dit combien mettre de côté, quel jour (de préférence le jour de la paie, avant toute dépense) et combien dépenser au maximum par jour. Suivez simplement les étapes numérotées.',
+    texte: 'Entrées du mois : l’argent déjà reçu et celui qui doit encore arriver (sûr).\nSorties du mois : vos dépenses déjà faites et vos factures à venir.\nDettes à rembourser : la part de vos dettes à payer ce mois-ci (une dette sans date est étalée sur 3 mois ; une dette datée, jusqu’à sa date).\nEntrées − sorties : la différence (ce que le mois vous laisse).\n\nEnsuite, l’application vous dit combien mettre de côté, quel jour (de préférence le jour de la paie, avant toute dépense) et combien dépenser au maximum par jour, période par période. C’est le même calcul que « Je peux dépenser aujourd’hui » : il garde déjà vos factures, vos dettes et ce qu’il faut pour le début du mois suivant. Suivez simplement les étapes numérotées.',
   },
   agenda: {
     titre: 'L’agenda',

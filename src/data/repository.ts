@@ -67,6 +67,8 @@ export interface NewIntent {
   date: CivilDate;
   status: 'en_pause' | 'abandonne' | 'replanifie';
   remindOn?: CivilDate;
+  /** Ce que l'on voulait acheter (facultatif). */
+  label?: string;
 }
 
 /** Erreur réseau : le serveur ne répond pas, la connexion est requise. */
@@ -92,7 +94,8 @@ export interface FinanceRepository {
   /** Crée le compte et renvoie son identifiant. */
   addWallet(w: NewWallet): Promise<string>;
   addPlanned(p: NewPlanned): Promise<void>;
-  recordOperation(op: NewOperation): Promise<void>;
+  /** Renvoie l'identifiant de l'opération (pour proposer « Annuler » juste après). */
+  recordOperation(op: NewOperation): Promise<string | void>;
   saveIntent(i: NewIntent): Promise<void>;
   addDebt(d: NewDebt): Promise<void>;
   /** Remboursement atomique : une opération + un règlement ; refuse un montant supérieur au reste. */

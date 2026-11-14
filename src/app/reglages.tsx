@@ -74,6 +74,9 @@ export default function Reglages() {
                 <Choice label="Afficher noms et montants dans les notifications" value={r.showDetails ? 'oui' : 'non'}
                   onChange={(v) => setPrefs({ ...prefs, reminders: { ...r, showDetails: v === 'oui' } })}
                   options={[{ value: 'non', label: 'Non (recommandé)' }, { value: 'oui', label: 'Oui' }]} />
+                <Choice label="Chaque soir à 20 h : « Avez-vous noté vos dépenses ? »" value={r.evening ? 'oui' : 'non'}
+                  onChange={(v) => setPrefs({ ...prefs, reminders: { ...r, evening: v === 'oui' } })}
+                  options={[{ value: 'non', label: 'Non' }, { value: 'oui', label: 'Oui' }]} />
                 <Label muted>Par défaut, une notification dit seulement « Une échéance arrive demain ». Sur l’écran verrouillé, le contenu reste masqué.</Label>
               </>
             ) : null}

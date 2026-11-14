@@ -52,7 +52,7 @@ export default function Calendrier() {
   const [opened, setOpened] = useState<string | null>(null);
   const [, m0] = (snapshot?.today ?? '2026-01-01').split('-').map(Number);
   const subtitle = `${MOIS[m0 - 1][0].toUpperCase()}${MOIS[m0 - 1].slice(1)} ${(snapshot?.today ?? '').slice(0, 4)}`;
-  if (!snapshot) return <Screen title="Calendrier" subtitle={subtitle}><Label muted>Chargement…</Label></Screen>;
+  if (!snapshot) return <Screen title="Agenda" subtitle={subtitle}><Label muted>Chargement…</Label></Screen>;
 
   // Prévision arrêtée à la fin du mois ; le début du mois suivant n'est compté que pour ce qu'il faut garder.
   const fc = forecast(snapshot, view);
@@ -64,7 +64,7 @@ export default function Calendrier() {
   const nextMonth = MOIS[Number(out.earlyNext.until.slice(5, 7)) - 1];
 
   return (
-    <Screen title="Calendrier" subtitle={subtitle} help={<Aide k="agenda" size={26} />}>
+    <Screen title="Agenda" subtitle={subtitle} help={<Aide k="agenda" size={26} />}>
       <Choice label="" value={view} onChange={setView}
         options={[{ value: 'standard', label: 'Prévu' }, { value: 'prudente', label: 'Prudent' }]} />
       {view === 'prudente' ? <Label muted>Prudent : sans l’argent attendu, au cas où il n’arriverait pas à temps.</Label> : null}

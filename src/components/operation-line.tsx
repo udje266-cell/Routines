@@ -13,7 +13,7 @@ export function OperationLine({ op, wallets }: { op: Operation; wallets: Wallet[
   const transfer = op.kind === 'transfert';
   const from = wallets.find((w) => w.id === op.walletId)?.name ?? '';
   const to = wallets.find((w) => w.id === op.toWalletId)?.name ?? '';
-  const title = op.label || (op.category ? categoryLabel(op.category) : income ? 'Argent reçu' : 'Dépense');
+  const title = (op.label && categoryLabel(op.label)) || (op.category ? categoryLabel(op.category) : income ? 'Argent reçu' : 'Dépense');
   const sub = transfer ? `${from} → ${to}` : `${from}${op.category && op.label !== op.category ? ` · ${categoryLabel(op.category)}` : ''}${op.incomeType === 'petite' ? ' · petite somme' : ''}`;
   return (
     <Pressable onPress={() => router.push({ pathname: '/operation', params: { id: op.id } })} accessibilityRole="button"

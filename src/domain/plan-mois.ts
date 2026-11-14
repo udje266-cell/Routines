@@ -84,6 +84,8 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
     if (o.date < start || o.date > end) continue;
     if (o.kind === 'transfert') {
       if (pockets.has(o.toWalletId ?? '')) push(o.date, { id: o.id, label: o.label || 'Épargne', amount: o.amount, kind: 'sortie', done: true, category: 'Épargne' });
+      // Les frais de transfert (Wave, Orange Money…) sont une vraie dépense.
+      if (o.fee) push(o.date, { id: `${o.id}-frais`, label: 'Frais de transfert', amount: o.fee, kind: 'sortie', done: true, category: 'Frais' });
       continue;
     }
     push(o.date, { id: o.id, label: o.label || o.category || (o.kind === 'rentree' ? 'Argent reçu' : 'Dépense'), amount: o.amount,
@@ -148,7 +150,7 @@ export function monthPlan(snap: Snapshot, anyDayOfMonth: CivilDate = snap.today)
   ];
   if (debtTotal > 0) steps.push(`Remboursez d’abord vos dettes : ${F(debtTotal)} ce mois-ci (${debtLines.slice(0, 4).join(', ')}${debtLines.length > 4 ? '…' : ''}).`);
   if (shortage) {
-    const next = all.filter((e) => e.kind === 'sortie' && !e.done && e.planned && e.planned.date >= shortage.date).sort((a, b) => b.amount - a.amount)[0];
+    const next = all.filter((e) => e.kind === 'sortie' && !e.done && e.planned && e.planned.source !== 'epargne' && e.planned.date >= shortage.date).sort((a, b) => b.amount - a.amount)[0];
     steps.push(`Attention : à partir du ${jm(shortage.date)}, il vous manquera ${F(shortage.amount)}. Pas d’épargne ce mois-ci${budget.savingsPaused ? ' (versements prévus mis en pause)' : ''}.`);
     steps.push(next
       ? `Demandez à décaler « ${next.label} » (${F(next.amount)}), reportez ce qui peut attendre, et notez chaque petite somme reçue : elle réduit le manque.`

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from 'react-native';
 
 import { addDays, formatDateFr, formatFcfa, type CivilDate, type DayEntry, type MonthPlan } from '@/domain';
-import { itemIcon } from '@/lib/categories';
+import { categoryLabel, itemIcon } from '@/lib/categories';
 
 import { C } from './ui';
 
@@ -145,7 +145,7 @@ export function DayPanel({ day, today, entries }: { day: CivilDate; today: Civil
               accessibilityLabel={`${e.label}, ${e.kind === 'entree' ? 'plus' : 'moins'} ${formatFcfa(e.amount)}${e.done ? '' : ', prévu'}. Modifier ou effacer`}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, opacity: pressed ? 0.6 : 1 })}>
               <Ionicons name={itemIcon(e.label, e.category, e.kind === 'entree' ? 'rentree' : 'sortie')} size={22} color={C.texte} />
-              <Text style={{ flex: 1, fontSize: 16, color: C.texte }} numberOfLines={1}>{e.label}{e.done ? '' : ' · prévu'}</Text>
+              <Text style={{ flex: 1, fontSize: 16, color: C.texte }} numberOfLines={1}>{categoryLabel(e.label)}{e.done ? "" : " · prévu"}</Text>
               <Text style={{ fontSize: 16, fontWeight: '800', color: e.kind === 'entree' ? C.mentheTexte : C.texte }}>
                 {e.kind === 'entree' ? '+' : '−'}{formatFcfa(e.amount)}
               </Text>
@@ -187,10 +187,10 @@ export function PlanCard({ plan }: { plan: MonthPlan }) {
         <Aide k="plan" />
       </View>
       {[
-        ['Entrées prévues', `+${formatFcfa(plan.income)}`, C.mentheTexte],
-        ['Sorties prévues', `−${formatFcfa(plan.expenses)}`, C.texte],
+        ['Entrées du mois', `+${formatFcfa(plan.income)}`, C.mentheTexte],
+        ['Sorties du mois', `−${formatFcfa(plan.expenses)}`, C.texte],
         ...(plan.debtTotal > 0 ? [['Dettes à rembourser', `−${formatFcfa(plan.debtTotal)}`, C.texte]] : []),
-        ['Il reste', formatFcfa(plan.left), short ? C.risque : C.texte],
+        ['Entrées − sorties', formatFcfa(plan.left), short ? C.risque : C.texte],
       ].map(([l, v, col], i, rows) => (
         <View key={l} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: i === rows.length - 1 ? 8 : 0, borderTopWidth: i === rows.length - 1 ? 1 : 0, borderTopColor: 'rgba(30,24,59,0.15)' }}>
           <Text style={{ fontSize: 16, color: C.texte, fontWeight: i === rows.length - 1 ? '800' : '400' }}>{l}</Text>

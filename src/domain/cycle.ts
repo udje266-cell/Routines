@@ -70,6 +70,7 @@ export interface IntentRecord {
   date: CivilDate;
   status: 'en_pause' | 'achete' | 'abandonne' | 'replanifie';
   createdOn: CivilDate;
+  label?: string;
 }
 
 export interface CycleReview {

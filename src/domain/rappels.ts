@@ -11,9 +11,13 @@ export interface ReminderSettings {
   hour: number;
   /** Afficher noms et montants : désactivé par défaut (écran verrouillé, téléphone prêté…). */
   showDetails: boolean;
+  /** Rappel chaque soir pour noter les dépenses du jour (les petites coupures s'oublient vite). */
+  evening?: boolean;
+  /** Heure du rappel du soir (20 h par défaut). */
+  eveningHour?: number;
 }
 
-export const DEFAULT_REMINDERS: ReminderSettings = { enabled: false, daysBefore: 1, hour: 8, showDetails: false };
+export const DEFAULT_REMINDERS: ReminderSettings = { enabled: false, daysBefore: 1, hour: 8, showDetails: false, evening: false, eveningHour: 20 };
 
 export interface Reminder {
   /** Identifiant stable : reprogrammer ne crée pas de doublon. */
@@ -61,6 +65,13 @@ export function buildReminders(snap: Snapshot, s: ReminderSettings, maxDays = 30
       title: TITLE,
       body: s.showDetails ? `Achat en pause à revoir : ${formatFcfa(i.amount)} (${i.category}).` : 'Un achat en pause est à revoir aujourd’hui.',
     });
+  }
+  if (s.evening) {
+    // Les 7 prochains soirs (reprogrammés à chaque ouverture) ; jamais de montant dans ce rappel.
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(snap.today, i);
+      out.push({ id: `soir-${d}`, date: d, hour: s.eveningHour ?? 20, title: TITLE, body: 'Avez-vous noté vos dépenses et vos petites sommes d’aujourd’hui ? 30 secondes suffisent.' });
+    }
   }
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }

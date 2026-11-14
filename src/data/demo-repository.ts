@@ -38,14 +38,12 @@ export class DemoRepository implements FinanceRepository {
       { category: 'Transport', cap: 20_000, pleasure: false },
     ];
     this.wallets = [
-      { id: 'demo-wave', name: 'Wave', kind: 'wave', everyday: true, balance: 30_000 },
+      { id: 'demo-wave', name: 'Wave', kind: 'wave', everyday: true, balance: 160_000 },
       { id: 'demo-om', name: 'Orange Money', kind: 'orange_money', everyday: true, balance: 4_500 },
       { id: 'demo-esp', name: 'Espèces', kind: 'especes', everyday: true, balance: 6_000 },
       { id: 'demo-ep', name: 'Épargne', kind: 'epargne', everyday: false, balance: 15_000 },
     ];
-    this.planned = [
-      { id: 'demo-sal', kind: 'rentree', label: 'Salaire', amount: 120_000, date: addDays(today, 18), walletId: 'demo-wave', certainty: 'attendue', source: 'revenu' },
-    ];
+    this.planned = [];
     // Historique fictif du mois : salaire + nombreuses petites sommes reçues et dépensées.
     const start = `${today.slice(0, 8)}01`;
     const day = (n: number) => { const d = addDays(start, n); return d > today ? today : d; };
@@ -85,6 +83,9 @@ export class DemoRepository implements FinanceRepository {
       rule('demo-sodeci', 'Eau (SODECI)', 6_000, 20, 'Logement'),
       rule('demo-internet', 'Internet', 15_000, 5, 'Logement'),
       rule('demo-tontine', 'Tontine', 10_000, 28, 'Famille'),
+      // Salaire le 1er de chaque mois (celui de ce mois-ci est déjà reçu).
+      { id: 'demo-salaire', label: 'Salaire', kind: 'rentree', amount: 120_000, day: 1, start: `${today.slice(0, 8)}01`, walletId: 'demo-wave',
+        overrides: {}, settled: [`${today.slice(0, 8)}01`] },
     ];
     // Crédit fictif : prêt microfinance de 300 000 F sur 10 mois à 22 %.
     this.loans = [{
@@ -164,7 +165,7 @@ export class DemoRepository implements FinanceRepository {
   }
 
   async recordOperation(op: NewOperation) {
-    if (this.seen(op.clientKey)) return;
+    if (this.seen(op.clientKey)) return `op-${op.clientKey}`;
     const from = this.wallets.find((x) => x.id === op.walletId);
     if (!from) throw new RefusedError('Portefeuille inconnu');
     if (op.kind !== 'transfert' && !from.everyday) throw new RefusedError('Choisissez un portefeuille du quotidien.');
@@ -187,12 +188,13 @@ export class DemoRepository implements FinanceRepository {
         else p.amount -= op.amount;
       }
     }
+    return `op-${op.clientKey}`;
   }
 
   async saveIntent(i: NewIntent) {
     if (this.intentKeys.has(i.clientKey)) return;
     this.intentKeys.add(i.clientKey);
-    this.intents.unshift({ id: this.id(), amount: i.amount, category: i.category, walletId: i.walletId, date: i.date, status: i.status, createdOn: this.today });
+    this.intents.unshift({ id: this.id(), amount: i.amount, category: i.category, walletId: i.walletId, date: i.date, status: i.status, createdOn: this.today, label: i.label });
   }
 
   async addDebt(d: NewDebt) {
